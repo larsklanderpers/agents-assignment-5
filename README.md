@@ -531,7 +531,7 @@ the ignored local `.env` file.
 
 | Check | Result |
 |-------|--------|
-| Automated tests, including real graph execution with a model double | 102 passed |
+| Automated tests, including real graph execution with a model double | 109 passed (30 October follow-up) |
 | Supplied frontend production build | Passed |
 | Supplied basic evaluator runner (reference outputs) | Both averages 1.00 |
 | Supplied three-layer runner (reference outputs, live Luna judges) | Overall 0.97 |
@@ -542,8 +542,12 @@ the ignored local `.env` file.
 
 The three-layer runner's topic-adherence score was 0.76 and faithfulness was 0.97;
 the other metrics were 1.00. These judge scores vary and are not a course grade.
-Human decisions in the automated live checks were simulated; no browser-driven
-UI check was performed. The generator checks its labels against an independent
+Human decisions in the automated live checks were simulated. A browser walkthrough
+on 30 October submitted a fictitious urgent $95,000 engineering request, verified
+all three review modals, and completed approval using the UI buttons. The amount
+mask now retains three numeric digits across the decimal separator (for example,
+`$45,678.91` becomes `$***8.91`), with seven added regression cases.
+The generator checks its labels against an independent
 policy reference, asks the LLM to repair inconsistent labels, and raises an error
 after three unsuccessful attempts.
 

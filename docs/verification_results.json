@@ -3,9 +3,10 @@
   "model": "gpt-6-luna",
   "reasoning_effort": "none",
   "automated_tests": {
-    "passed": 102,
+    "passed": 109,
     "failed": 0,
-    "command": "python -m pytest tests/ -q"
+    "command": "python -m pytest tests/ -q",
+    "verified_at": "2026-10-30T02:56:39.397983+11:00"
   },
   "frontend_production_build": "passed",
   "supplied_basic_evaluation": {
@@ -58,7 +59,29 @@
   "limitations": [
     "LLM judge scores vary; topic adherence scored 0.76 with Luna.",
     "Frontend progress and history remain supplied static placeholders.",
-    "No browser-driven UI check was performed.",
     "Canvas submission remains to be completed."
-  ]
+  ],
+  "updated_at": "2026-10-30T02:56:39.397983+11:00",
+  "browser_walkthrough": {
+    "verified_at": "2026-10-30T02:56:39.397983+11:00",
+    "request_id": "REQ-1793289257177",
+    "request": "Fictitious emergency server replacement",
+    "amount": 95000,
+    "department": "engineering",
+    "priority": "urgent",
+    "risk_level": "critical",
+    "human_review_stages": [
+      "manager_review",
+      "finance_review",
+      "final_signoff"
+    ],
+    "final_status": "approved",
+    "method": "Browser form submission and approval buttons with demo comments"
+  },
+  "amount_masking_regression": {
+    "input": "$45,678.91",
+    "output": "$***8.91",
+    "numeric_digits_retained": 3,
+    "regression_cases": 7
+  }
 }

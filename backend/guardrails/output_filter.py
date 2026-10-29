@@ -49,7 +49,7 @@ def mask_financial_details(text: str) -> str:
 
     TODO (5 points):
     - Find dollar amounts matching pattern $X,XXX.XX or $XXXXX.XX
-    - Replace with masked version showing only last 3 digits: $***XX.XX
+    - Retain the last 3 numeric digits and their decimal separator: $***X.XX
     - Find account numbers (8+ consecutive digits) and mask all but last 4
     - Return the masked text
 
@@ -66,6 +66,8 @@ def mask_financial_details(text: str) -> str:
     """
     def mask_amount(match):
         amount = match.group()[1:].replace(",", "")
-        return "$***" + amount[-3:]
-    text = re.sub(r'\$[\d,]+\.?\d*', mask_amount, text)
+        digit_positions = [i for i, character in enumerate(amount) if character.isdigit()]
+        suffix_start = digit_positions[max(0, len(digit_positions) - 3)]
+        return "$***" + amount[suffix_start:]
+    text = re.sub(r'\$[\d,]+(?:\.\d+)?', mask_amount, text)
     return re.sub(r'\b\d{8,}\b', lambda m: "*" * (len(m.group()) - 4) + m.group()[-4:], text)

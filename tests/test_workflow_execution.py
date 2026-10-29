@@ -13,7 +13,7 @@ from backend.agent.graph import create_approval_graph
 from backend.agent.nodes import assess_risk
 from backend.evaluation.dataset import EVAL_DATASET
 from backend.guardrails.input_validator import validate_amount, validate_request
-from backend.guardrails.output_filter import sanitize_output
+from backend.guardrails.output_filter import sanitize_output, mask_financial_details
 from backend.evaluation.dataset_generator import generate_eval_dataset, generate_edge_cases, validate_generated_dataset, upload_to_langsmith
 
 
@@ -188,3 +188,17 @@ def test_output_redaction_covers_combined_sensitive_data():
     for sensitive in ("123-45-6789", "4111-1111-1111-1111", "alice@example.com", "555-123-4567", "123456789012", "$45,000.00"):
         assert sensitive not in result
     assert sanitize_output(result) == result
+
+
+@pytest.mark.parametrize("original, masked", [
+    ("$45,678.91", "$***8.91"),
+    ("$45678", "$***678"),
+    ("$12.34", "$***2.34"),
+    ("$123.4", "$***23.4"),
+    ("$12", "$***12"),
+    ("Amount $45,678.91.", "Amount $***8.91."),
+    ("Amount $45678.", "Amount $***678."),
+])
+def test_financial_mask_retains_numeric_digits(original, masked):
+    assert mask_financial_details(original) == masked
+    assert mask_financial_details(masked) == masked
