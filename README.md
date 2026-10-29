@@ -514,6 +514,11 @@ rationale for urgent requests. Reviewers see these as requester-reported claims;
 unknown situations remain explicitly unconfirmed. Existing API clients can omit
 the structured business case, and the review then displays the missing evidence.
 
+The request form uses a wider three-step dialog: request details, business case,
+then review and submit. It provides an explicit evidence-unavailable option,
+requires an urgency explanation for urgent requests, and retains in-page drafts
+when navigating Back or closing the dialog. Drafts do not persist across reloads.
+
 The supplied evaluation runners above check evaluator logic using reference
 outputs. To evaluate **actual graph outputs** with the configured live risk model:
 

@@ -61,7 +61,7 @@
     "Frontend progress and history remain supplied static placeholders.",
     "Canvas submission remains to be completed."
   ],
-  "updated_at": "2026-10-30T03:41:08.185297+11:00",
+  "updated_at": "2026-10-30T04:00:27.506374+11:00",
   "browser_walkthrough": {
     "verified_at": "2026-10-30T02:56:39.397983+11:00",
     "request_id": "REQ-1793289257177",
@@ -107,5 +107,45 @@
     "evidence": "explicitly marked as an unverified demo planning estimate",
     "browser_result": "Manager Review displayed threshold, budget reference, reviewer responsibilities and business-case evidence",
     "routing_changed_by_budget_reference": false
+  },
+  "request_form_followup": {
+    "verified_at": "2026-10-30T04:00:27.506374+11:00",
+    "layout": "Wide native dialog with request details, business case, and review-and-submit steps",
+    "typescript_check": "passed",
+    "frontend_source_tests": {
+      "passed": 10,
+      "command": "python -m pytest tests/test_frontend.py -q"
+    },
+    "frontend_production_build": "passed",
+    "browser_checks": [
+      "Required request details block advancement when empty",
+      "Closing and reopening retains the in-page draft",
+      "Back navigation retains earlier request and business-case fields",
+      "Urgent priority requires an urgency reason before review",
+      "Changing priority to Normal removes the urgency requirement and omits the old urgency text from submission",
+      "Evidence unavailable is an explicit requester choice and is preserved in the submitted case",
+      "Review screen shows amount, department, priority, current situation, evidence, impact and alternatives",
+      "Successful submission closes and resets the form",
+      "Live low-risk request completed through automatic budget validation",
+      "Live medium-risk request exposed Manager Review without the request dialog blocking it",
+      "Fictitious human-review test was rejected to leave no pending test decision"
+    ],
+    "live_test_requests": [
+      {
+        "request_id": "REQ-1793293078097",
+        "amount": 500,
+        "department": "operations",
+        "priority": "normal",
+        "final_status": "approved"
+      },
+      {
+        "request_id": "REQ-1793293111135",
+        "amount": 35000,
+        "department": "marketing",
+        "priority": "normal",
+        "final_status": "rejected (UI test only)"
+      }
+    ],
+    "draft_persistence": "In memory while the page remains open; not persistent across reloads"
   }
 }
