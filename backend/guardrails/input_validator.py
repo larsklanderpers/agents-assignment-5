@@ -7,6 +7,9 @@ on incoming financial requests.
 Part 2: Safety Guardrails (10 points from this file)
 """
 
+import math
+import re
+from html import unescape
 from backend.config import BUDGET_CEILING, VALID_DEPARTMENTS
 
 # --- GIVEN: Blocked patterns for SQL injection detection ---
@@ -52,7 +55,22 @@ def validate_request(
     Returns:
         Tuple of (is_valid, message)
     """
-    raise NotImplementedError("TODO: Implement validate_request (5 points)")
+    valid, message = validate_amount(amount)
+    if not valid:
+        return valid, message
+    if department not in VALID_DEPARTMENTS:
+        return False, f"Invalid department: {department}"
+    for name, value, limit in (("title", title, MAX_TITLE_LENGTH),
+                               ("description", description, MAX_DESCRIPTION_LENGTH),
+                               ("justification", justification, MAX_JUSTIFICATION_LENGTH)):
+        if not isinstance(value, str):
+            return False, f"{name.capitalize()} must be text"
+        if len(value) > limit:
+            return False, f"{name.capitalize()} too long"
+        safe, message = sanitize_text(value, name)
+        if not safe:
+            return False, message
+    return True, "Request validated successfully"
 
 
 def validate_amount(amount: float) -> tuple[bool, str]:
@@ -70,7 +88,13 @@ def validate_amount(amount: float) -> tuple[bool, str]:
     Returns:
         Tuple of (is_valid, message)
     """
-    raise NotImplementedError("TODO: Implement validate_amount (2 points)")
+    if isinstance(amount, bool) or not isinstance(amount, (int, float)) or (isinstance(amount, float) and not math.isfinite(amount)):
+        return False, "Amount must be a finite number"
+    if amount <= 0:
+        return False, "Amount must be positive"
+    if amount > BUDGET_CEILING:
+        return False, f"Amount exceeds budget ceiling of ${BUDGET_CEILING:,.2f}"
+    return True, "Amount is valid"
 
 
 def sanitize_text(text: str, field_name: str = "text") -> tuple[bool, str]:
@@ -90,4 +114,11 @@ def sanitize_text(text: str, field_name: str = "text") -> tuple[bool, str]:
     Returns:
         Tuple of (is_safe, original_text_or_error_message)
     """
-    raise NotImplementedError("TODO: Implement sanitize_text (3 points)")
+    if not isinstance(text, str):
+        return False, f"{field_name} must be text"
+    normalized = re.sub(r"\s+", " ", unescape(text).lower())
+    if any(pattern in normalized for pattern in BLOCKED_PATTERNS) or re.search(
+        r"<\s*script\b|on\w+\s*=|javascript\s*:", normalized
+    ):
+        return False, f"Blocked content detected in {field_name}: suspicious pattern"
+    return True, text

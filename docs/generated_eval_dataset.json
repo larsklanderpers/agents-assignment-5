@@ -1,0 +1,277 @@
+[
+  {
+    "input": {
+      "request_id": "GEN-001",
+      "title": "Replacement monitors",
+      "description": "Purchase four monitors for the engineering team.",
+      "amount": 3200.0,
+      "department": "engineering",
+      "requester": "Maya Chen",
+      "justification": "Replace damaged monitors used for software development.",
+      "priority": "normal"
+    },
+    "expected": {
+      "risk_level": "low",
+      "status": "approved",
+      "approval_path": [
+        "submit_request",
+        "assess_risk",
+        "validate_budget",
+        "process_request"
+      ],
+      "human_reviews": 0
+    }
+  },
+  {
+    "input": {
+      "request_id": "GEN-002",
+      "title": "Marketing campaign software",
+      "description": "Annual subscription for campaign planning and analytics tools.",
+      "amount": 18000.0,
+      "department": "marketing",
+      "requester": "Jordan Patel",
+      "justification": "Coordinate upcoming product launches and measure campaign performance.",
+      "priority": "high"
+    },
+    "expected": {
+      "risk_level": "medium",
+      "status": "approved",
+      "approval_path": [
+        "submit_request",
+        "assess_risk",
+        "manager_review",
+        "validate_budget",
+        "process_request"
+      ],
+      "human_reviews": 1
+    }
+  },
+  {
+    "input": {
+      "request_id": "GEN-003",
+      "title": "Research lab equipment",
+      "description": "Purchase a precision spectrometer for ongoing materials research.",
+      "amount": 72000.0,
+      "department": "research",
+      "requester": "Elena Garc\u00eda",
+      "justification": "The equipment is required to complete scheduled experiments.",
+      "priority": "normal"
+    },
+    "expected": {
+      "risk_level": "high",
+      "status": "approved",
+      "approval_path": [
+        "submit_request",
+        "assess_risk",
+        "manager_review",
+        "finance_review",
+        "process_request"
+      ],
+      "human_reviews": 2
+    }
+  },
+  {
+    "input": {
+      "request_id": "GEN-004",
+      "title": "Urgent data center capacity",
+      "description": "Add server capacity to address an immediate production demand.",
+      "amount": 85000.0,
+      "department": "engineering",
+      "requester": "Noah Williams",
+      "justification": "Prevent service degradation during a critical customer rollout.",
+      "priority": "urgent"
+    },
+    "expected": {
+      "risk_level": "critical",
+      "status": "approved",
+      "approval_path": [
+        "submit_request",
+        "assess_risk",
+        "manager_review",
+        "finance_review",
+        "final_signoff",
+        "process_request"
+      ],
+      "human_reviews": 3
+    }
+  },
+  {
+    "input": {
+      "request_id": "GEN-005",
+      "title": "HR onboarding supplies",
+      "description": "Purchase onboarding materials and office supplies for new employees.",
+      "amount": 6500.0,
+      "department": "hr",
+      "requester": "Priya Shah",
+      "justification": "Support the upcoming hiring cohort with required onboarding materials.",
+      "priority": "low"
+    },
+    "expected": {
+      "risk_level": "low",
+      "status": "approved",
+      "approval_path": [
+        "submit_request",
+        "assess_risk",
+        "validate_budget",
+        "manager_review",
+        "process_request"
+      ],
+      "human_reviews": 1
+    }
+  },
+  {
+    "input": {
+      "request_id": "GEN-006",
+      "title": "Operations vehicle purchase",
+      "description": "Purchase a service vehicle for the facilities team.",
+      "amount": 125000.0,
+      "department": "operations",
+      "requester": "Marcus Reed",
+      "justification": "Expand the facilities team's capacity to respond to site maintenance needs.",
+      "priority": "normal"
+    },
+    "expected": {
+      "risk_level": null,
+      "status": "rejected",
+      "approval_path": [
+        "submit_request",
+        "handle_rejection"
+      ],
+      "human_reviews": 0
+    }
+  },
+  {
+    "input": {
+      "request_id": "EDGE-001",
+      "title": "Threshold Purchase",
+      "description": "Purchase exactly at the $10,000 low-risk limit.",
+      "amount": 10000,
+      "department": "engineering",
+      "requester": "Avery Chen",
+      "justification": "Replace essential development equipment.",
+      "priority": "normal"
+    },
+    "expected": {
+      "risk_level": "low",
+      "status": "approved",
+      "approval_path": [
+        "submit_request",
+        "assess_risk",
+        "validate_budget",
+        "process_request"
+      ],
+      "human_reviews": 0
+    }
+  },
+  {
+    "input": {
+      "request_id": "EDGE-002",
+      "title": "Budget Boundary",
+      "description": "Purchase exactly equal to the engineering department budget.",
+      "amount": 50000,
+      "department": "engineering",
+      "requester": "Morgan Patel",
+      "justification": "Fund a planned infrastructure upgrade.",
+      "priority": "normal"
+    },
+    "expected": {
+      "risk_level": "medium",
+      "status": "approved",
+      "approval_path": [
+        "submit_request",
+        "assess_risk",
+        "manager_review",
+        "validate_budget",
+        "process_request"
+      ],
+      "human_reviews": 1
+    }
+  },
+  {
+    "input": {
+      "request_id": "EDGE-003",
+      "title": "Upper High-Risk Limit",
+      "description": "Purchase exactly at the $100,000 high-risk limit.",
+      "amount": 100000,
+      "department": "research",
+      "requester": "Jordan Rivera",
+      "justification": "Acquire specialized equipment for the research program.",
+      "priority": "high"
+    },
+    "expected": {
+      "risk_level": "high",
+      "status": "approved",
+      "approval_path": [
+        "submit_request",
+        "assess_risk",
+        "manager_review",
+        "finance_review",
+        "process_request"
+      ],
+      "human_reviews": 2
+    }
+  },
+  {
+    "input": {
+      "request_id": "EDGE-004",
+      "title": "Urgent Large Purchase",
+      "description": "Urgent purchase of emergency response equipment; amount exceeds $1,000,000.",
+      "amount": 1000001,
+      "department": "operations",
+      "requester": "Taylor Brooks",
+      "justification": "The equipment is needed immediately to maintain critical operations.",
+      "priority": "urgent"
+    },
+    "expected": {
+      "risk_level": null,
+      "status": "rejected",
+      "approval_path": [
+        "submit_request",
+        "handle_rejection"
+      ],
+      "human_reviews": 0
+    }
+  },
+  {
+    "input": {
+      "request_id": "EDGE-005",
+      "title": "Zero-Cost Request",
+      "description": "No-cost request for a software license.",
+      "amount": 0,
+      "department": "marketing",
+      "requester": "Casey Nguyen",
+      "justification": "Evaluate a tool before a future purchase.",
+      "priority": "low"
+    },
+    "expected": {
+      "risk_level": null,
+      "status": "rejected",
+      "approval_path": [
+        "submit_request",
+        "handle_rejection"
+      ],
+      "human_reviews": 0
+    }
+  },
+  {
+    "input": {
+      "request_id": "EDGE-006",
+      "title": "Script Injection Attempt",
+      "description": "Routine supply request. <script>alert('test')</script>",
+      "amount": 2500,
+      "department": "hr",
+      "requester": "Riley Morgan",
+      "justification": "Restock supplies for the HR team.",
+      "priority": "normal"
+    },
+    "expected": {
+      "risk_level": null,
+      "status": "rejected",
+      "approval_path": [
+        "submit_request",
+        "handle_rejection"
+      ],
+      "human_reviews": 0
+    }
+  }
+]

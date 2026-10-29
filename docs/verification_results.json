@@ -1,0 +1,64 @@
+{
+  "verified_at": "2026-10-29T22:42:23.596547+11:00",
+  "model": "gpt-6-luna",
+  "reasoning_effort": "none",
+  "automated_tests": {
+    "passed": 102,
+    "failed": 0,
+    "command": "python -m pytest tests/ -q"
+  },
+  "frontend_production_build": "passed",
+  "supplied_basic_evaluation": {
+    "risk_accuracy": 1.0,
+    "approval_consistency": 1.0,
+    "scope": "reference outputs scored against themselves"
+  },
+  "supplied_three_layer_evaluation": {
+    "cases": 12,
+    "scope": "reference outputs scored against themselves",
+    "scores_rounded_to_2_decimals": {
+      "approval_path": 1.0,
+      "false_positive": 1.0,
+      "false_negative": 1.0,
+      "human_review_efficiency": 1.0,
+      "tool_call_accuracy": 1.0,
+      "agent_goal_accuracy": 1.0,
+      "topic_adherence": 0.76,
+      "policy_adherence": 1.0,
+      "hallucination": 0.97,
+      "audit_trail": 1.0
+    },
+    "overall_rounded": 0.97
+  },
+  "live_graph_evaluation": {
+    "cases": 12,
+    "all_9_metric_averages": 1.0,
+    "human_decisions": "simulated approvals",
+    "llm_judged_metrics_included": false
+  },
+  "generated_dataset": {
+    "generated_cases": 12,
+    "graph_verified_cases": 12,
+    "langsmith_dataset_name": "financial-approval-luna-2026-10-29-01e95a9c",
+    "langsmith_dataset_id": "e2294933-85ef-4acc-a098-4d1f14e27cbe"
+  },
+  "web_server_verification": {
+    "health": "passed",
+    "critical_request_stages": [
+      "manager_review",
+      "finance_review",
+      "final_signoff",
+      "complete"
+    ],
+    "decisions": "simulated through the real AG-UI HTTP stream",
+    "final_status": "approved",
+    "langsmith_runs_confirmed": 4
+  },
+  "trace_url": "https://smith.langchain.com/o/e9e1e8ac-8f83-4a6d-addb-abaf109eac4e/projects/p/8338ac51-6855-45dd-933b-7a8a50478412/r/01a18771-1252-70ca-a9c4-8cd1ecf4ca77?poll=true",
+  "limitations": [
+    "LLM judge scores vary; topic adherence scored 0.76 with Luna.",
+    "Frontend progress and history remain supplied static placeholders.",
+    "No browser-driven UI check was performed.",
+    "Canvas submission remains to be completed."
+  ]
+}

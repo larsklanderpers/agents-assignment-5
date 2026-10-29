@@ -44,6 +44,36 @@ Part 5: Three-Layer Evaluation Framework (34 points)
 # ---------------------------------------------------------------------------
 # Helper constants
 # ---------------------------------------------------------------------------
+import asyncio
+import json
+from concurrent.futures import ThreadPoolExecutor
+from backend.config import get_llm
+
+
+def _score(coroutine):
+    """Allow these synchronous evaluators to be called inside a running loop."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return float(asyncio.run(coroutine))
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        return float(executor.submit(asyncio.run, coroutine).result())
+
+
+def _request(inputs):
+    return json.dumps({k: inputs.get(k) for k in
+                       ("title", "description", "amount", "department", "priority", "justification")})
+
+
+def _answer(outputs):
+    return json.dumps(outputs, default=str)
+
+
+def _conversation(inputs, outputs):
+    from ragas.messages import HumanMessage, AIMessage
+    return [HumanMessage(content=_request(inputs)), AIMessage(content=_answer(outputs))]
+
+
 RISK_LEVELS = ["low", "medium", "high", "critical"]
 
 EXPECTED_REVIEWS_BY_RISK = {
@@ -100,9 +130,11 @@ def create_approval_path_evaluator():
     Returns:
         A callable evaluator function
     """
-    raise NotImplementedError(
-        "TODO: Implement create_approval_path_evaluator (3 points)"
-    )
+    def approval_path(inputs, outputs, reference_outputs):
+        actual, expected = outputs.get("approval_path", []), reference_outputs.get("approval_path", [])
+        score = 1.0 if actual == expected else 0.5 if len(actual) == len(expected) else 0.0
+        return {"score": score, "reasoning": "Approval path matches exactly" if score == 1 else "Approval path differs"}
+    return approval_path
 
 
 def create_false_positive_evaluator():
@@ -123,9 +155,10 @@ def create_false_positive_evaluator():
     Returns:
         A callable evaluator function
     """
-    raise NotImplementedError(
-        "TODO: Implement create_false_positive_evaluator (2 points)"
-    )
+    def false_positive(inputs, outputs, reference_outputs):
+        wrong = reference_outputs.get("status") == "rejected" and outputs.get("status") == "approved"
+        return {"score": float(not wrong), "reasoning": "False positive detected" if wrong else "No false positive"}
+    return false_positive
 
 
 def create_false_negative_evaluator():
@@ -146,9 +179,10 @@ def create_false_negative_evaluator():
     Returns:
         A callable evaluator function
     """
-    raise NotImplementedError(
-        "TODO: Implement create_false_negative_evaluator (2 points)"
-    )
+    def false_negative(inputs, outputs, reference_outputs):
+        wrong = reference_outputs.get("status") == "approved" and outputs.get("status") == "rejected"
+        return {"score": float(not wrong), "reasoning": "False negative detected" if wrong else "No false negative"}
+    return false_negative
 
 
 def create_human_review_efficiency_evaluator():
@@ -170,9 +204,11 @@ def create_human_review_efficiency_evaluator():
     Returns:
         A callable evaluator function
     """
-    raise NotImplementedError(
-        "TODO: Implement create_human_review_efficiency_evaluator (3 points)"
-    )
+    def human_review_efficiency(inputs, outputs, reference_outputs):
+        difference = abs(outputs.get("human_reviews", 0) - reference_outputs.get("human_reviews", 0))
+        return {"score": 1.0 if difference == 0 else 0.5 if difference == 1 else 0.0,
+                "reasoning": f"Human review count differs by {difference}"}
+    return human_review_efficiency
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -207,9 +243,21 @@ def create_tool_call_accuracy_evaluator():
     Returns:
         A callable evaluator function
     """
-    raise NotImplementedError(
-        "TODO: Implement create_tool_call_accuracy_evaluator (5 points)"
-    )
+    def tool_call_accuracy(inputs, outputs, reference_outputs):
+        from ragas.metrics import ToolCallAccuracy
+        from ragas.messages import HumanMessage, AIMessage, ToolCall
+        from ragas.dataset_schema import MultiTurnSample
+        actual = [ToolCall(name=s, args={}) for s in outputs.get("approval_path", [])]
+        expected = [ToolCall(name=s, args={}) for s in reference_outputs.get("approval_path", [])]
+        if not expected:
+            return {"score": float(not actual), "reasoning": "No workflow stages expected"}
+        sample = MultiTurnSample(
+            user_input=[HumanMessage(content=_request(inputs)),
+                        AIMessage(content=_answer(outputs), tool_calls=actual)],
+            reference_tool_calls=expected)
+        return {"score": _score(ToolCallAccuracy().multi_turn_ascore(sample)),
+                "reasoning": "RAGAS ordered workflow tool-call accuracy"}
+    return tool_call_accuracy
 
 
 def create_agent_goal_accuracy_evaluator():
@@ -242,9 +290,15 @@ def create_agent_goal_accuracy_evaluator():
     Returns:
         A callable evaluator function
     """
-    raise NotImplementedError(
-        "TODO: Implement create_agent_goal_accuracy_evaluator (4 points)"
-    )
+    def agent_goal_accuracy(inputs, outputs, reference_outputs):
+        from ragas.metrics import AgentGoalAccuracyWithReference
+        from ragas.llms import LangchainLLMWrapper
+        from ragas.dataset_schema import MultiTurnSample
+        metric = AgentGoalAccuracyWithReference(llm=LangchainLLMWrapper(get_llm()))
+        sample = MultiTurnSample(user_input=_conversation(inputs, outputs),
+                                 reference=f"Request is {reference_outputs['status']}")
+        return {"score": _score(metric.multi_turn_ascore(sample)), "reasoning": "RAGAS goal accuracy against reference outcome"}
+    return agent_goal_accuracy
 
 
 def create_topic_adherence_evaluator():
@@ -283,9 +337,14 @@ def create_topic_adherence_evaluator():
     Returns:
         A callable evaluator function
     """
-    raise NotImplementedError(
-        "TODO: Implement create_topic_adherence_evaluator (3 points)"
-    )
+    def topic_adherence(inputs, outputs, reference_outputs):
+        from ragas.metrics import TopicAdherenceScore
+        from ragas.llms import LangchainLLMWrapper
+        from ragas.dataset_schema import MultiTurnSample
+        metric = TopicAdherenceScore(llm=LangchainLLMWrapper(get_llm()), mode="precision")
+        sample = MultiTurnSample(user_input=_conversation(inputs, outputs), reference_topics=REFERENCE_TOPICS)
+        return {"score": _score(metric.multi_turn_ascore(sample)), "reasoning": "RAGAS financial-domain topic precision"}
+    return topic_adherence
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -318,9 +377,15 @@ def create_policy_adherence_evaluator():
     Returns:
         A callable evaluator function
     """
-    raise NotImplementedError(
-        "TODO: Implement create_policy_adherence_evaluator (4 points)"
-    )
+    def policy_adherence(inputs, outputs, reference_outputs):
+        amount, status = inputs.get("amount", 0), outputs.get("status")
+        level = outputs.get("risk_level")
+        checks = [amount <= BUDGET_CEILING or status == "rejected",
+                  status != "approved" or (level in EXPECTED_REVIEWS_BY_RISK and
+                      outputs.get("human_reviews", 0) >= EXPECTED_REVIEWS_BY_RISK[level]),
+                  amount > 0 or status == "rejected"]
+        return {"score": sum(checks) / len(checks), "reasoning": f"{sum(checks)}/3 policy rules satisfied"}
+    return policy_adherence
 
 
 def create_hallucination_evaluator():
@@ -368,9 +433,18 @@ def create_hallucination_evaluator():
     Returns:
         A callable evaluator function
     """
-    raise NotImplementedError(
-        "TODO: Implement create_hallucination_evaluator (4 points)"
-    )
+    def hallucination(inputs, outputs, reference_outputs):
+        from ragas.metrics import Faithfulness
+        from ragas.llms import LangchainLLMWrapper
+        from ragas.dataset_schema import SingleTurnSample
+        record = {k: outputs.get(k) for k in ("status", "risk_level", "approval_path", "human_reviews")}
+        record["decisions"] = [{k: d.get(k) for k in ("stage", "decision")}
+                               for d in outputs.get("decisions", [])]
+        sample = SingleTurnSample(user_input=_request(inputs), response=_answer(outputs),
+                                 retrieved_contexts=[_request(inputs), json.dumps(record)])
+        metric = Faithfulness(llm=LangchainLLMWrapper(get_llm()))
+        return {"score": _score(metric.single_turn_ascore(sample)), "reasoning": "RAGAS faithfulness to request and workflow record"}
+    return hallucination
 
 
 def create_audit_trail_evaluator():
@@ -411,6 +485,14 @@ def create_audit_trail_evaluator():
     Returns:
         A callable evaluator function
     """
-    raise NotImplementedError(
-        "TODO: Implement create_audit_trail_evaluator (4 points)"
-    )
+    def audit_trail(inputs, outputs, reference_outputs):
+        expected = (len(reference_outputs["decisions"]) if "decisions" in reference_outputs else
+                    sum(s in HUMAN_REVIEW_STAGES for s in reference_outputs.get("approval_path", [])))
+        decisions = outputs.get("decisions", [])
+        if not isinstance(decisions, list):
+            return {"score": 0.0, "reasoning": "Decisions must be a list"}
+        checks = [bool(decisions) if expected else not decisions,
+                  all(isinstance(d, dict) and {"stage", "decision", "reasoning"} <= d.keys() for d in decisions),
+                  len(decisions) == expected]
+        return {"score": sum(checks) / 3, "reasoning": f"{sum(checks)}/3 audit trail checks passed"}
+    return audit_trail

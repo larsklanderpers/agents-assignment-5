@@ -73,4 +73,21 @@ def create_approval_graph(checkpointer=None):
     Returns:
         Compiled StateGraph ready for execution
     """
-    raise NotImplementedError("TODO: Implement create_approval_graph (10 points)")
+    graph = StateGraph(ApprovalState)
+    for node in (submit_request, assess_risk, manager_review, validate_budget,
+                 finance_review, final_signoff, process_request, handle_rejection):
+        graph.add_node(node.__name__, node)
+    graph.add_edge(START, "submit_request")
+    routes = [
+        ("submit_request", route_after_submission, ["assess_risk", "handle_rejection"]),
+        ("assess_risk", route_after_risk, ["validate_budget", "manager_review"]),
+        ("manager_review", route_after_manager, ["process_request", "validate_budget", "finance_review", "handle_rejection"]),
+        ("validate_budget", route_after_budget, ["process_request", "manager_review", "finance_review"]),
+        ("finance_review", route_after_finance, ["process_request", "final_signoff", "handle_rejection"]),
+        ("final_signoff", route_after_final, ["process_request", "handle_rejection"]),
+    ]
+    for source, router, destinations in routes:
+        graph.add_conditional_edges(source, router, {name: name for name in destinations})
+    graph.add_edge("process_request", END)
+    graph.add_edge("handle_rejection", END)
+    return graph.compile(checkpointer=checkpointer)

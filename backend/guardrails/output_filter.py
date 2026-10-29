@@ -36,7 +36,11 @@ def sanitize_output(text: str) -> str:
     Returns:
         Sanitized text with PII masked
     """
-    raise NotImplementedError("TODO: Implement sanitize_output (5 points)")
+    replacements = {"ssn": "***-**-XXXX", "credit_card": "****-****-****-XXXX",
+                    "email": "[EMAIL REDACTED]", "phone": "***-***-XXXX"}
+    for name, pattern in PII_PATTERNS.items():
+        text = pattern.sub(replacements[name], text)
+    return mask_financial_details(text)
 
 
 def mask_financial_details(text: str) -> str:
@@ -60,4 +64,8 @@ def mask_financial_details(text: str) -> str:
     Returns:
         Text with financial details masked
     """
-    raise NotImplementedError("TODO: Implement mask_financial_details (5 points)")
+    def mask_amount(match):
+        amount = match.group()[1:].replace(",", "")
+        return "$***" + amount[-3:]
+    text = re.sub(r'\$[\d,]+\.?\d*', mask_amount, text)
+    return re.sub(r'\b\d{8,}\b', lambda m: "*" * (len(m.group()) - 4) + m.group()[-4:], text)

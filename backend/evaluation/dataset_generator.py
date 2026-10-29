@@ -11,6 +11,66 @@ Part 5: Dataset Generation (16 points)
 """
 
 import json
+import math
+import re
+
+
+def _generate(prompt, num_cases, llm):
+    if type(num_cases) is not int or num_cases <= 0:
+        raise ValueError("num_cases must be a positive integer")
+    if llm is None:
+        from backend.config import get_llm
+        llm = get_llm()
+    request_prompt = prompt.format(num_cases=num_cases, departments=", ".join(VALID_DEPARTMENTS))
+    request_prompt += ("\nBudget escalation overrides the generic low/medium paths. For each valid request "
+        "compare its amount with its department's budget: low + over budget adds manager_review; "
+        "medium + over budget adds finance_review AFTER validate_budget. High/critical skip the budget check.")
+    errors = []
+    for attempt in range(3):
+        response = llm.invoke(request_prompt)
+        text = response.text.strip()
+        text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.IGNORECASE)
+        try:
+            dataset = json.loads(text)
+        except json.JSONDecodeError:
+            dataset = None
+        valid, errors = validate_generated_dataset(dataset)
+        if valid:
+            if len(dataset) != num_cases:
+                errors.append(f"Expected {num_cases} cases; received {len(dataset)}")
+            for case in dataset:
+                expected = _policy_reference(case["input"])
+                if case["expected"] != expected:
+                    errors.append(f"{case['input']['request_id']}: expected labels must be {json.dumps(expected)}")
+        if not errors:
+            return dataset
+        if attempt < 2:
+            request_prompt += ("\nReturn the corrected complete array, preserving the input fields where valid. "
+                "Previous output:\n" + text + "\nCorrect these validation errors: " + "; ".join(errors))
+    raise ValueError("Invalid generated dataset after 3 attempts: " + "; ".join(errors))
+
+
+def _policy_reference(inputs):
+    """Independent policy labels prevent an LLM-generated evaluation baseline from drifting."""
+    from backend.guardrails.input_validator import validate_request
+    valid, _ = validate_request(*(inputs[k] for k in ("amount", "department", "title", "description", "justification")))
+    path = ["submit_request"]
+    if not valid:
+        return {"risk_level": None, "status": "rejected", "approval_path": path + ["handle_rejection"], "human_reviews": 0}
+    amount = inputs["amount"]
+    risk = ("critical" if amount > 50000 and inputs["priority"] == "urgent" else
+            "high" if amount > 50000 else "medium" if amount > 10000 else "low")
+    path.append("assess_risk")
+    over_budget = amount > DEPARTMENT_BUDGETS[inputs["department"]]
+    if risk == "low":
+        path += ["validate_budget"] + (["manager_review"] if over_budget else [])
+    elif risk == "medium":
+        path += ["manager_review", "validate_budget"] + (["finance_review"] if over_budget else [])
+    else:
+        path += ["manager_review", "finance_review"] + (["final_signoff"] if risk == "critical" else [])
+    path.append("process_request")
+    return {"risk_level": risk, "status": "approved", "approval_path": path,
+            "human_reviews": sum(s in ("manager_review", "finance_review", "final_signoff") for s in path)}
 
 # ---------------------------------------------------------------------------
 # Constants (GIVEN — do not modify)
@@ -183,9 +243,7 @@ def generate_eval_dataset(num_cases=10, llm=None):
         dataset = generate_eval_dataset(num_cases=5)
         # Returns: [{"input": {...}, "expected": {...}}, ...]
     """
-    raise NotImplementedError(
-        "TODO: Implement generate_eval_dataset (4 points)"
-    )
+    return _generate(GENERATION_PROMPT, num_cases, llm)
 
 
 def generate_edge_cases(num_cases=5, llm=None):
@@ -210,9 +268,7 @@ def generate_edge_cases(num_cases=5, llm=None):
     Returns:
         list[dict]: Generated edge cases matching DATASET_SCHEMA
     """
-    raise NotImplementedError(
-        "TODO: Implement generate_edge_cases (4 points)"
-    )
+    return _generate(EDGE_CASE_PROMPT, num_cases, llm)
 
 
 def upload_to_langsmith(dataset, dataset_name="financial-approval-eval"):
@@ -244,9 +300,16 @@ def upload_to_langsmith(dataset, dataset_name="financial-approval-eval"):
     Raises:
         ValueError: If dataset is empty
     """
-    raise NotImplementedError(
-        "TODO: Implement upload_to_langsmith (4 points)"
-    )
+    from backend import config  # Load the local .env before creating the client.
+    import langsmith
+    valid, errors = validate_generated_dataset(dataset)
+    if not valid:
+        raise ValueError("Invalid dataset: " + "; ".join(errors))
+    client = langsmith.Client()
+    ls_dataset = client.create_dataset(dataset_name=dataset_name)
+    for case in dataset:
+        client.create_example(inputs=case["input"], outputs=case["expected"], dataset_id=ls_dataset.id)
+    return str(ls_dataset.id)
 
 
 def validate_generated_dataset(dataset):
@@ -282,6 +345,49 @@ def validate_generated_dataset(dataset):
         valid, errors = validate_generated_dataset([{"input": {}, "expected": {}}])
         # valid = False, errors = ["Case 1: input missing 'request_id'", ...]
     """
-    raise NotImplementedError(
-        "TODO: Implement validate_generated_dataset (4 points)"
-    )
+    if not isinstance(dataset, list) or not dataset:
+        return False, ["Dataset must be a non-empty list"]
+    errors, identifiers = [], set()
+    input_fields = {"request_id", "title", "description", "amount", "department", "requester", "justification", "priority"}
+    expected_fields = {"risk_level", "status", "approval_path", "human_reviews"}
+    stages = {"submit_request", "assess_risk", "validate_budget", "manager_review", "finance_review", "final_signoff", "process_request", "handle_rejection"}
+    for i, case in enumerate(dataset, 1):
+        prefix = f"Case {i}: "
+        if not isinstance(case, dict) or not isinstance(case.get("input"), dict) or not isinstance(case.get("expected"), dict):
+            errors.append(prefix + "input and expected must be objects")
+            continue
+        inputs, expected = case["input"], case["expected"]
+        errors.extend(prefix + f"input missing '{key}'" for key in sorted(input_fields - inputs.keys()))
+        errors.extend(prefix + f"expected missing '{key}'" for key in sorted(expected_fields - expected.keys()))
+        for key in input_fields - {"amount"}:
+            if key in inputs and not isinstance(inputs[key], str):
+                errors.append(prefix + f"{key} must be a string")
+        identifier = inputs.get("request_id")
+        if isinstance(identifier, str):
+            if not identifier or identifier in identifiers:
+                errors.append(prefix + "request_id must be non-empty and unique")
+            identifiers.add(identifier)
+        amount = inputs.get("amount")
+        if type(amount) not in (int, float) or (isinstance(amount, float) and not math.isfinite(amount)):
+            errors.append(prefix + "amount must be a finite number")
+        if inputs.get("department") not in VALID_DEPARTMENTS:
+            errors.append(prefix + "invalid department")
+        if inputs.get("priority") not in ("low", "normal", "high", "urgent"):
+            errors.append(prefix + "invalid priority")
+        path = expected.get("approval_path")
+        valid_path = isinstance(path, list) and all(isinstance(s, str) and s in stages for s in path)
+        if not valid_path:
+            errors.append(prefix + "approval_path must be a list of valid stages")
+        risk = expected.get("risk_level")
+        if risk not in ("low", "medium", "high", "critical", None):
+            errors.append(prefix + "invalid risk_level")
+        if valid_path and (risk is None) != ("assess_risk" not in path):
+            errors.append(prefix + "risk_level must be null only when assess_risk was skipped")
+        if expected.get("status") not in ("approved", "rejected"):
+            errors.append(prefix + "invalid status")
+        count = expected.get("human_reviews")
+        if type(count) is not int or count < 0:
+            errors.append(prefix + "human_reviews must be a non-negative integer")
+        elif valid_path and count != sum(s in ("manager_review", "finance_review", "final_signoff") for s in path):
+            errors.append(prefix + "human_reviews does not match approval_path")
+    return not errors, errors

@@ -11,7 +11,7 @@ load_dotenv()
 # --- LLM Configuration ---
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")  # "openai" or "google"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-6-luna")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
 GOOGLE_MODEL = os.getenv("GOOGLE_MODEL", "gemini-3.8-flash")
 
@@ -53,4 +53,6 @@ def get_llm(temperature: float = 0.0):
         model=OPENAI_MODEL,
         api_key=OPENAI_API_KEY,
         temperature=temperature,
+        # Luna supports temperature and Chat Completions tools at effort none.
+        **({"reasoning_effort": "none"} if OPENAI_MODEL == "gpt-6-luna" else {}),
     )

@@ -37,7 +37,17 @@ def create_risk_accuracy_evaluator():
     Returns:
         A callable evaluator function
     """
-    raise NotImplementedError("TODO: Implement create_risk_accuracy_evaluator (10 points)")
+    def risk_accuracy(inputs, outputs, reference_outputs):
+        actual, expected = outputs.get("risk_level"), reference_outputs.get("risk_level")
+        levels = ["low", "medium", "high", "critical"]
+        if actual == expected:
+            score = 1.0
+        elif actual in levels and expected in levels and abs(levels.index(actual) - levels.index(expected)) == 1:
+            score = 0.5
+        else:
+            score = 0.0
+        return {"score": score}
+    return risk_accuracy
 
 
 def create_approval_consistency_evaluator():
@@ -57,4 +67,6 @@ def create_approval_consistency_evaluator():
     Returns:
         A callable evaluator function
     """
-    raise NotImplementedError("TODO: Implement create_approval_consistency_evaluator (10 points)")
+    def approval_consistency(inputs, outputs, reference_outputs):
+        return {"score": float(outputs.get("status") == reference_outputs.get("status"))}
+    return approval_consistency

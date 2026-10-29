@@ -27,7 +27,7 @@ class ApprovalState(MessagesState):
     priority: str
 
     # --- Risk Assessment ---
-    risk_level: str  # "low", "medium", "high", "critical"
+    risk_level: Optional[str]  # None when rejected before assessment
     risk_reasoning: str
 
     # --- Validation ---
@@ -43,9 +43,9 @@ class ApprovalState(MessagesState):
     final_comments: str
 
     # --- Budget ---
-    department_budget: float
-    budget_remaining: float
-    within_budget: bool
+    department_budget: Optional[float]
+    budget_remaining: Optional[float]
+    within_budget: Optional[bool]
 
     # --- Result ---
     current_stage: str

@@ -498,6 +498,61 @@ python -m backend.evaluation.run_eval
 python -m backend.evaluation.run_three_layer_eval
 ```
 
+## Evaluating the Implemented Workflow
+
+The seven required implementation files are complete. The supplied frontend is
+unchanged; its progress and history panels remain starter placeholders.
+
+The supplied evaluation runners above check evaluator logic using reference
+outputs. To evaluate **actual graph outputs** with the configured live risk model:
+
+```bash
+python -m backend.evaluation.run_graph_eval
+python -m backend.evaluation.run_graph_eval --three-layer --limit 2
+```
+
+The new runner records the executed node path, decisions, final status and risk
+level. Human decisions are simulated as approvals **in this evaluation runner
+only**. The web app still pauses for real human decisions. `--three-layer` also
+enables the three LLM-judged RAGAS metrics and incurs additional model calls.
+
+`tests/test_workflow_execution.py` executes the real graph with an explicit model
+double, so it needs no credentials. It covers all 12 supplied cases, rejection at
+each review stage, repeated-request state resets, SQLite persistence across
+reopening, the asynchronous web-server graph API, invalid resume payloads, and
+dataset generation/upload contracts. These offline checks do not establish live
+model accuracy or successful LangSmith tracing.
+
+### Verified Results (29 October 2026)
+
+The configured OpenAI model is `gpt-6-luna`, with reasoning effort `none` for
+compatibility with the existing Chat Completions integration. API keys belong in
+the ignored local `.env` file.
+
+| Check | Result |
+|-------|--------|
+| Automated tests, including real graph execution with a model double | 102 passed |
+| Supplied frontend production build | Passed |
+| Supplied basic evaluator runner (reference outputs) | Both averages 1.00 |
+| Supplied three-layer runner (reference outputs, live Luna judges) | Overall 0.97 |
+| Actual graph on all 12 supplied requests, live Luna risk model | All nine metric averages 1.00 |
+| Six normal and six generated edge cases, checked against the actual graph | 12/12 matched; uploaded to LangSmith |
+| Real AG-UI server stream, critical request | Three review pauses, then approved |
+| LangSmith tracing | Four matching runs confirmed |
+
+The three-layer runner's topic-adherence score was 0.76 and faithfulness was 0.97;
+the other metrics were 1.00. These judge scores vary and are not a course grade.
+Human decisions in the automated live checks were simulated; no browser-driven
+UI check was performed. The generator checks its labels against an independent
+policy reference, asks the LLM to repair inconsistent labels, and raises an error
+after three unsuccessful attempts.
+
+See [verification_results.json](docs/verification_results.json) for the exact
+scope and a recorded trace link, and
+[generated_eval_dataset.json](docs/generated_eval_dataset.json) for the generated
+cases. On Windows, use `python -X utf8 -m backend.evaluation.run_three_layer_eval`
+if the terminal cannot print the report's table characters.
+
 ## Resources
 
 - [LangGraph Human-in-the-Loop](https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/)
