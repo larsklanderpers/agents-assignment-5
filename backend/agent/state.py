@@ -25,6 +25,7 @@ class ApprovalState(MessagesState):
     requester: str
     justification: str
     priority: str
+    business_case: Optional[dict]
 
     # --- Risk Assessment ---
     risk_level: Optional[str]  # None when rejected before assessment

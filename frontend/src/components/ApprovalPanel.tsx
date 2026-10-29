@@ -17,6 +17,14 @@ const RISK_COLORS: Record<string, string> = {
   critical: "text-red-600 bg-red-100",
 };
 
+const SITUATION_LABELS: Record<string, string> = {
+  unknown: "Unknown / not yet confirmed",
+  confirmed_outage: "Confirmed outage or interruption (requester-reported)",
+  degraded: "Degraded operation / reduced capacity (requester-reported)",
+  preventive: "Preventive / planned need",
+  other: "Other — see evidence",
+};
+
 function ApprovalModal({
   data,
   resolve,
@@ -35,16 +43,16 @@ function ApprovalModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+      <div role="dialog" aria-modal="true" aria-labelledby="approval-review-title" className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="bg-blue-600 text-white px-6 py-4 rounded-t-xl">
-          <h2 className="text-xl font-bold">{stageLabel}</h2>
+        <div className="bg-blue-600 text-white px-6 py-4 shrink-0">
+          <h2 id="approval-review-title" className="text-xl font-bold">{stageLabel}</h2>
           <p className="text-blue-100 text-sm mt-1">
-            Review the request details and provide your decision
+            Review the rules, supporting facts and your decision responsibilities
           </p>
         </div>
 
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-4 overflow-y-auto min-h-0">
           {/* Request Details */}
           <div className="space-y-3">
             <div className="flex justify-between items-start">
@@ -77,14 +85,99 @@ function ApprovalModal({
 
             {data.risk_reasoning && (
               <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Risk Assessment</p>
+                <p className="text-xs text-gray-500 uppercase tracking-wide">AI Risk Assessment</p>
                 <p className="text-sm text-gray-700 mt-1">{data.risk_reasoning}</p>
               </div>
             )}
           </div>
 
+          {data.policy_context && (
+            <section aria-label="Applicable rules and reviewer responsibilities" className="rounded-lg border border-blue-200 bg-blue-50 p-4 space-y-3">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">Why this review is required</h3>
+                <p className="text-sm text-gray-700 mt-1">{data.policy_context.trigger}</p>
+                <p className="text-sm text-gray-700 mt-1">{data.policy_context.stage_reason}</p>
+                <p className="text-sm font-medium text-blue-900 mt-2">
+                  Required reviewers: {data.policy_context.review_path.join(" → ") || "None when within budget"}
+                </p>
+              </div>
+              {data.policy_context.budget_reference && (
+                <div className="rounded bg-white p-3 border border-blue-100 space-y-2">
+                  <h3 className="text-sm font-semibold text-gray-900">Budget reference</h3>
+                  <dl className="text-sm grid grid-cols-2 gap-x-3 gap-y-1">
+                    <dt className="text-gray-600">Department budget</dt>
+                    <dd className="font-medium">${data.policy_context.budget_reference.department_budget.toLocaleString()}</dd>
+                    <dt className="text-gray-600">This request</dt>
+                    <dd className="font-medium">${data.amount.toLocaleString()}</dd>
+                    <dt className="text-gray-600">Balance if approved</dt>
+                    <dd className={`font-medium ${data.policy_context.budget_reference.remaining_if_approved < 0 ? "text-red-700" : "text-green-700"}`}>
+                      ${data.policy_context.budget_reference.remaining_if_approved.toLocaleString()}
+                    </dd>
+                  </dl>
+                  {data.policy_context.budget_reference.over_budget_amount > 0 && (
+                    <p className="text-sm font-medium text-red-700">
+                      ${data.policy_context.budget_reference.over_budget_amount.toLocaleString()} above the department budget reference.
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-600">{data.policy_context.budget_reference.source}</p>
+                  <p className="text-xs font-medium text-gray-700">
+                    Automatic budget validation: {data.policy_context.budget_reference.automatically_validated
+                      ? "completed earlier in the workflow."
+                      : ["high", "critical"].includes(data.risk_level)
+                        ? "skipped for this risk level. This comparison is reference information, not a completed budget check."
+                        : "not yet run. This comparison does not change the approval route."}
+                  </p>
+                </div>
+              )}
+              {!data.policy_context.matches_assessment && (
+                <p role="alert" className="text-sm font-medium text-amber-900 bg-amber-100 rounded p-3">
+                  The AI assessment differs from the amount/priority rule ({data.policy_context.rule_risk_level}).
+                  Verify the request facts and resolve the discrepancy before deciding.
+                </p>
+              )}
+              <details className="text-sm">
+                <summary className="cursor-pointer font-medium text-blue-900">View all risk and routing rules</summary>
+                <ul className="list-disc pl-5 mt-2 space-y-1 text-gray-700">
+                  {data.policy_context.risk_rules.map((rule) => (
+                    <li key={rule.level}><span className="font-medium capitalize">{rule.level}:</span> {rule.condition}</li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-gray-700">{data.policy_context.ceiling_rule}</p>
+                <p className="mt-2 text-gray-700">{data.policy_context.budget_rule}</p>
+              </details>
+              <div className="pt-3 border-t border-blue-200">
+                <h3 className="text-sm font-semibold text-gray-900">Before you decide</h3>
+                <p className="text-xs text-gray-600 mt-1">Human review guidance — the risk label determines the route, not whether the purchase is justified.</p>
+                <ul className="list-disc pl-5 mt-2 space-y-1 text-sm text-gray-700">
+                  {data.policy_context.review_focus.map((item) => <li key={item}>{item}</li>)}
+                </ul>
+              </div>
+            </section>
+          )}
+
+          {(data.priority || data.description || data.justification) && (
+            <section aria-label="Supporting request facts" className="text-sm space-y-2">
+              <h3 className="font-semibold text-gray-900">Supporting request facts</h3>
+              {data.priority && <p className="text-gray-700"><span className="font-medium">Priority:</span> <span className="capitalize">{data.priority}</span></p>}
+              {data.description && <p className="text-gray-700"><span className="font-medium">Description:</span> {data.description}</p>}
+              {data.justification && <p className="text-gray-700"><span className="font-medium">Business justification:</span> {data.justification}</p>}
+            </section>
+          )}
+
+          <section aria-label="Business-case evidence" className="rounded-lg border border-gray-200 p-4 text-sm space-y-2">
+            <h3 className="font-semibold text-gray-900">Business-case evidence</h3>
+            <p className="text-xs text-gray-600">These details are supplied by the requester and are not independently verified by the app.</p>
+            <p className="text-gray-700"><span className="font-medium">Current situation:</span> {SITUATION_LABELS[data.business_case?.current_situation || "unknown"]}</p>
+            <p className="text-gray-700 whitespace-pre-wrap"><span className="font-medium">Evidence or source:</span> {data.business_case?.evidence || "Not supplied — verify the requester's claim."}</p>
+            <p className="text-gray-700 whitespace-pre-wrap"><span className="font-medium">Business impact:</span> {data.business_case?.business_impact || "Not supplied."}</p>
+            <p className="text-gray-700 whitespace-pre-wrap"><span className="font-medium">Urgency rationale:</span> {data.business_case?.urgency_reason || "Not supplied. Urgent priority alone does not establish an outage."}</p>
+            {(!data.business_case || data.business_case.current_situation === "unknown") && (
+              <p className="text-amber-900 bg-amber-50 rounded p-2">The current situation is unconfirmed. Check what is known, what is assumed and whether the urgency is justified before deciding.</p>
+            )}
+          </section>
+
           {/* Budget Info (finance_review) */}
-          {data.type === "finance_review" && (
+          {data.type === "finance_review" && !data.policy_context?.budget_reference && (
             <div className="bg-gray-50 rounded-lg p-4 space-y-2">
               <p className="text-sm font-semibold text-gray-700">Budget Information</p>
               {/* High and critical requests skip validate_budget, so these fields can be missing */}
@@ -125,6 +218,10 @@ function ApprovalModal({
             </div>
           )}
 
+          {data.type === "finance_review" && data.policy_context?.budget_reference && data.manager_comments && (
+            <div className="text-sm text-gray-700"><span className="font-medium">Manager comments:</span> {data.manager_comments}</div>
+          )}
+
           {/* Previous Decisions (final_signoff) */}
           {data.type === "final_signoff" && data.decisions && data.decisions.length > 0 && (
             <div className="bg-gray-50 rounded-lg p-4 space-y-2">
@@ -158,8 +255,9 @@ function ApprovalModal({
             />
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-2">
+        </div>
+          {/* Keep decisions visible while the reviewer reads the rules. */}
+          <div className="flex gap-3 px-6 py-4 border-t bg-white shrink-0">
             <button
               onClick={() => handleDecision(true)}
               className="flex-1 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors"
@@ -173,7 +271,6 @@ function ApprovalModal({
               Reject
             </button>
           </div>
-        </div>
       </div>
     </div>
   );

@@ -3,10 +3,10 @@
   "model": "gpt-6-luna",
   "reasoning_effort": "none",
   "automated_tests": {
-    "passed": 109,
+    "passed": 124,
     "failed": 0,
     "command": "python -m pytest tests/ -q",
-    "verified_at": "2026-10-30T02:56:39.397983+11:00"
+    "verified_at": "2026-10-30T03:41:08.185297+11:00"
   },
   "frontend_production_build": "passed",
   "supplied_basic_evaluation": {
@@ -61,7 +61,7 @@
     "Frontend progress and history remain supplied static placeholders.",
     "Canvas submission remains to be completed."
   ],
-  "updated_at": "2026-10-30T02:56:39.397983+11:00",
+  "updated_at": "2026-10-30T03:41:08.185297+11:00",
   "browser_walkthrough": {
     "verified_at": "2026-10-30T02:56:39.397983+11:00",
     "request_id": "REQ-1793289257177",
@@ -83,5 +83,29 @@
     "output": "$***8.91",
     "numeric_digits_retained": 3,
     "regression_cases": 7
+  },
+  "review_dialog_followup": {
+    "verified_at": "2026-10-30T03:41:08.185297+11:00",
+    "frontend_production_build": "passed",
+    "request_id": "REQ-1793291901639",
+    "request": "Fictitious planned marketing campaign",
+    "amount": 35000,
+    "department": "marketing",
+    "priority": "normal",
+    "risk_level": "medium",
+    "visible_review_route": [
+      "Manager",
+      "Finance"
+    ],
+    "budget_reference": {
+      "department_budget": 30000,
+      "remaining_if_approved": -5000,
+      "over_budget_amount": 5000
+    },
+    "automatic_budget_check_at_manager_review": "not yet run",
+    "business_case_situation": "preventive / planned need (requester-reported)",
+    "evidence": "explicitly marked as an unverified demo planning estimate",
+    "browser_result": "Manager Review displayed threshold, budget reference, reviewer responsibilities and business-case evidence",
+    "routing_changed_by_budget_reference": false
   }
 }

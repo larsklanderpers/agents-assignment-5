@@ -7,6 +7,14 @@ export type RiskLevel = "low" | "medium" | "high" | "critical";
 export type ApprovalStatus = "pending" | "approved" | "rejected" | "needs_review";
 export type Department = "engineering" | "marketing" | "operations" | "research" | "hr";
 
+export interface BusinessCase {
+  request_id: string;
+  current_situation: "unknown" | "confirmed_outage" | "degraded" | "preventive" | "other";
+  evidence: string;
+  business_impact: string;
+  urgency_reason: string;
+}
+
 export interface FinancialRequest {
   request_id: string;
   title: string;
@@ -16,6 +24,7 @@ export interface FinancialRequest {
   requester: string;
   justification: string;
   priority: "low" | "normal" | "high" | "urgent";
+  business_case?: BusinessCase | null;
 }
 
 export interface ApprovalDecision {
@@ -43,6 +52,29 @@ export interface InterruptData {
   amount: number;
   department: string;
   risk_level: RiskLevel;
+  priority?: FinancialRequest["priority"];
+  description?: string;
+  justification?: string;
+  business_case?: BusinessCase | null;
+  policy_context?: {
+    risk_rules: { level: RiskLevel; condition: string }[];
+    rule_risk_level: RiskLevel;
+    matches_assessment: boolean;
+    trigger: string;
+    review_path: string[];
+    stage_reason: string;
+    ceiling_rule: string;
+    budget_rule: string;
+    review_focus: string[];
+    budget_reference: {
+      department_budget: number;
+      requested_amount: number;
+      remaining_if_approved: number;
+      over_budget_amount: number;
+      automatically_validated: boolean;
+      source: string;
+    };
+  };
   risk_reasoning?: string;
   within_budget?: boolean;
   department_budget?: number;

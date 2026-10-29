@@ -39,6 +39,7 @@ class FinancialRequest(BaseModel):
     requester: str = Field(description="Name of the person making the request")
     justification: str = Field(description="Business justification for the request")
     priority: str = Field(default="normal", description="Priority level: low, normal, high, urgent")
+    business_case: Optional[dict] = Field(default=None, description="Requester-reported current situation, evidence, business impact and urgency")
 
 
 class ApprovalDecision(BaseModel):

@@ -122,3 +122,21 @@ def sanitize_text(text: str, field_name: str = "text") -> tuple[bool, str]:
     ):
         return False, f"Blocked content detected in {field_name}: suspicious pattern"
     return True, text
+
+
+def validate_business_case(business_case) -> tuple[bool, str]:
+    """Optional for existing API clients; supplied business-case fields are validated."""
+    if business_case is None:
+        return True, "No structured business case supplied"
+    if not isinstance(business_case, dict):
+        return False, "Business case must be an object"
+    if business_case.get("current_situation") not in ("unknown", "confirmed_outage", "degraded", "preventive", "other"):
+        return False, "Invalid current situation"
+    for name in ("evidence", "business_impact", "urgency_reason"):
+        value = business_case.get(name, "")
+        if not isinstance(value, str) or len(value) > MAX_JUSTIFICATION_LENGTH:
+            return False, f"Invalid business-case {name}"
+        safe, message = sanitize_text(value, name)
+        if not safe:
+            return False, message
+    return True, "Business case validated"

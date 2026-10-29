@@ -500,8 +500,19 @@ python -m backend.evaluation.run_three_layer_eval
 
 ## Evaluating the Implemented Workflow
 
-The seven required implementation files are complete. The supplied frontend is
-unchanged; its progress and history panels remain starter placeholders.
+The seven required implementation files are complete. The supplied frontend now
+includes policy explanations, stage-specific review guidance, budget-reference
+comparisons and structured business-case prompts. Its progress and history panels
+remain starter placeholders.
+
+Review policy explanations come from backend configuration. Budget reference
+figures are shown even before validation or when that node is skipped; these
+calculations do not update validation state or change routing. They are based on
+the configured department budget, not a live accounting balance. The form asks
+for the current situation, evidence/source and business impact, plus an urgency
+rationale for urgent requests. Reviewers see these as requester-reported claims;
+unknown situations remain explicitly unconfirmed. Existing API clients can omit
+the structured business case, and the review then displays the missing evidence.
 
 The supplied evaluation runners above check evaluator logic using reference
 outputs. To evaluate **actual graph outputs** with the configured live risk model:
@@ -531,7 +542,7 @@ the ignored local `.env` file.
 
 | Check | Result |
 |-------|--------|
-| Automated tests, including real graph execution with a model double | 109 passed (30 October follow-up) |
+| Automated tests, including real graph execution with a model double | 124 passed (30 October follow-up) |
 | Supplied frontend production build | Passed |
 | Supplied basic evaluator runner (reference outputs) | Both averages 1.00 |
 | Supplied three-layer runner (reference outputs, live Luna judges) | Overall 0.97 |

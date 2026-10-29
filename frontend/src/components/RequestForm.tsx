@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useCoAgent, useCopilotChat } from "@copilotkit/react-core";
 import { Role, TextMessage } from "@copilotkit/runtime-client-gql";
-import { Department, FinancialRequest } from "@/lib/types";
+import { BusinessCase, Department, FinancialRequest } from "@/lib/types";
 
 const DEPARTMENTS: Department[] = ["engineering", "marketing", "operations", "research", "hr"];
 const PRIORITIES = ["low", "normal", "high", "urgent"];
@@ -22,10 +22,15 @@ export default function RequestForm() {
     requester: "",
     justification: "",
     priority: "normal",
+    current_situation: "unknown" as BusinessCase["current_situation"],
+    evidence: "",
+    business_impact: "",
+    urgency_reason: "",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const requestId = `REQ-${Date.now()}`;
 
     const message = `Please process this financial approval request:
 - Title: ${formData.title}
@@ -34,10 +39,14 @@ export default function RequestForm() {
 - Requester: ${formData.requester}
 - Priority: ${formData.priority}
 - Description: ${formData.description}
-- Justification: ${formData.justification}`;
+- Justification: ${formData.justification}
+- Current situation (requester-reported): ${formData.current_situation}
+- Evidence or source: ${formData.evidence}
+- Business impact: ${formData.business_impact}
+- Reason for urgency: ${formData.urgency_reason || "Not supplied"}`;
 
     setState({
-      request_id: `REQ-${Date.now()}`,
+      request_id: requestId,
       title: formData.title,
       description: formData.description,
       amount: parseFloat(formData.amount),
@@ -45,6 +54,13 @@ export default function RequestForm() {
       requester: formData.requester,
       justification: formData.justification,
       priority: formData.priority as FinancialRequest["priority"],
+      business_case: {
+        request_id: requestId,
+        current_situation: formData.current_situation,
+        evidence: formData.evidence,
+        business_impact: formData.business_impact,
+        urgency_reason: formData.urgency_reason,
+      },
     });
     appendMessage(new TextMessage({ role: Role.User, content: message }));
 
@@ -56,6 +72,10 @@ export default function RequestForm() {
       requester: "",
       justification: "",
       priority: "normal",
+      current_situation: "unknown",
+      evidence: "",
+      business_impact: "",
+      urgency_reason: "",
     });
     setIsOpen(false);
   };
@@ -72,7 +92,7 @@ export default function RequestForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-4 space-y-3">
+    <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-4 space-y-3 max-h-[85vh] overflow-y-auto">
       <h3 className="text-lg font-semibold text-gray-800">New Financial Request</h3>
 
       <input
@@ -119,23 +139,60 @@ export default function RequestForm() {
 
       <textarea
         placeholder="Description"
+        aria-label="Purchase or action requested"
         value={formData.description}
         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
         className="w-full p-2 border rounded text-sm"
         rows={2}
         required
+        maxLength={2000}
       />
+
+      <fieldset className="border border-blue-200 rounded-lg p-3 space-y-3">
+        <legend className="text-sm font-semibold text-gray-800 px-1">Business-case facts</legend>
+        <p className="text-xs text-gray-600">Separate confirmed facts from assumptions. Urgent priority alone does not establish an outage. If evidence is unavailable, say so.</p>
+        <div>
+          <label htmlFor="current-situation" className="block text-sm font-medium text-gray-700 mb-1">What is happening now?</label>
+          <select id="current-situation" value={formData.current_situation}
+            onChange={(e) => setFormData({ ...formData, current_situation: e.target.value as BusinessCase["current_situation"] })}
+            className="w-full p-2 border rounded text-sm">
+            <option value="unknown">Unknown / not yet confirmed</option>
+            <option value="confirmed_outage">Confirmed outage or interruption</option>
+            <option value="degraded">Degraded operation / reduced capacity</option>
+            <option value="preventive">Preventive / planned need</option>
+            <option value="other">Other — explain in evidence</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor="case-evidence" className="block text-sm font-medium text-gray-700 mb-1">Evidence or source</label>
+          <textarea id="case-evidence" value={formData.evidence}
+            onChange={(e) => setFormData({ ...formData, evidence: e.target.value })}
+            placeholder="Ticket, monitoring observation, quote or source and time. If unconfirmed, state what still needs checking."
+            rows={2} maxLength={2000} required className="w-full p-2 border rounded text-sm" />
+        </div>
+        <div>
+          <label htmlFor="case-impact" className="block text-sm font-medium text-gray-700 mb-1">Business impact</label>
+          <textarea id="case-impact" value={formData.business_impact}
+            onChange={(e) => setFormData({ ...formData, business_impact: e.target.value })}
+            placeholder="Who or what is affected? Describe the impact of acting or waiting, including any unknowns."
+            rows={2} maxLength={2000} required className="w-full p-2 border rounded text-sm" />
+        </div>
+      </fieldset>
 
       <textarea
         placeholder="Business Justification"
+        aria-label="Business justification and alternatives"
         value={formData.justification}
         onChange={(e) => setFormData({ ...formData, justification: e.target.value })}
         className="w-full p-2 border rounded text-sm"
         rows={2}
         required
+        maxLength={2000}
       />
+      <p className="text-xs text-gray-600">Explain why this expense is the right response, alternatives considered, cost basis and expected outcome.</p>
 
       <select
+        aria-label="Priority"
         value={formData.priority}
         onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
         className="w-full p-2 border rounded text-sm"
@@ -146,6 +203,16 @@ export default function RequestForm() {
           </option>
         ))}
       </select>
+
+      {formData.priority === "urgent" && (
+        <div>
+          <label htmlFor="case-urgency" className="block text-sm font-medium text-gray-700 mb-1">Why is this urgent?</label>
+          <textarea id="case-urgency" value={formData.urgency_reason}
+            onChange={(e) => setFormData({ ...formData, urgency_reason: e.target.value })}
+            placeholder="What deadline or consequence makes this urgent? State what supports that claim."
+            rows={2} maxLength={2000} required className="w-full p-2 border rounded text-sm" />
+        </div>
+      )}
 
       <div className="flex gap-2">
         <button
