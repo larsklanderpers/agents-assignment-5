@@ -48,6 +48,7 @@ import asyncio
 import json
 from concurrent.futures import ThreadPoolExecutor
 from backend.config import get_llm
+from backend.evaluation.evidence import workflow_record as capture_workflow_record, policy_record
 
 
 def _score(coroutine):
@@ -62,11 +63,32 @@ def _score(coroutine):
 
 def _request(inputs):
     return json.dumps({k: inputs.get(k) for k in
-                       ("title", "description", "amount", "department", "priority", "justification")})
+                       ("title", "description", "amount", "department", "priority", "justification",
+                        "business_case")})
 
 
 def _answer(outputs):
     return json.dumps(outputs, default=str)
+
+
+def _faithfulness_answer(outputs):
+    """Keep the same claims, but avoid misleading JSON-label paraphrases.
+
+    A count of reviews performed is not a claim about reviews required, and a
+    configured reference balance is not a live accounting balance. Put model
+    reasoning in plain text so RAGAS checks its content rather than asking
+    whether the evidence contains a verbatim copy of a risk_reasoning field.
+    Preserve every other field, including unknown ones, for judging.
+    """
+    fields = dict(outputs)
+    explanation = fields.pop("risk_reasoning", None)
+    labels = {
+        "human_reviews": "number_of_human_reviews_performed",
+        "department_budget": "configured_department_budget_reference",
+        "budget_remaining": "configured_reference_balance_if_approved_not_live_balance",
+    }
+    report = json.dumps({labels.get(key, key): value for key, value in fields.items()}, default=str)
+    return report + ("\n" + str(explanation) if explanation else "")
 
 
 def _conversation(inputs, outputs):
@@ -418,6 +440,9 @@ def create_hallucination_evaluator():
            result ("Final status: approved") count as hallucinations and a correct
            solution scores near 0. Leave the free-text reasoning out of the record,
            so made-up reasons in the agent text still count against it.
+           Ground recorded reviewer names, timestamps and budget results too,
+           and supply configured policy. Live callers pass a separate snapshot
+           so a candidate answer cannot certify its own fabricated metadata.
 
       Option B — Direct LLM judge:
         1. Use get_llm() to create an LLM
@@ -433,17 +458,39 @@ def create_hallucination_evaluator():
     Returns:
         A callable evaluator function
     """
-    def hallucination(inputs, outputs, reference_outputs):
+    def hallucination(inputs, outputs, reference_outputs, *, workflow_record=None):
         from ragas.metrics import Faithfulness
         from ragas.llms import LangchainLLMWrapper
         from ragas.dataset_schema import SingleTurnSample
-        record = {k: outputs.get(k) for k in ("status", "risk_level", "approval_path", "human_reviews")}
-        record["decisions"] = [{k: d.get(k) for k in ("stage", "decision")}
-                               for d in outputs.get("decisions", [])]
-        sample = SingleTurnSample(user_input=_request(inputs), response=_answer(outputs),
-                                 retrieved_contexts=[_request(inputs), json.dumps(record)])
-        metric = Faithfulness(llm=LangchainLLMWrapper(get_llm()))
-        return {"score": _score(metric.single_turn_ascore(sample)), "reasoning": "RAGAS faithfulness to request and workflow record"}
+        # Live runners provide an independent execution snapshot. The three-argument
+        # coursework API remains compatible with reference-only runners; those can
+        # only ground the supplied structured record, not independently verify it.
+        record = (workflow_record if workflow_record is not None else
+                  capture_workflow_record(outputs, outputs.get("approval_path", [])))
+        sample = SingleTurnSample(user_input=_request(inputs), response=_faithfulness_answer(outputs),
+                                 retrieved_contexts=[
+                                     "Requester-reported claims (not verified facts): " + _request(inputs),
+                                     "Recorded execution facts: " + json.dumps(record, default=str),
+                                     "Authoritative configured policy: " + json.dumps(policy_record()),
+                                 ])
+        # ragas==0.4.3: retain its standard score while exposing the NLI reasons
+        # behind deductions. This hook is covered by live control runs.
+        verdicts = []
+
+        class AuditedFaithfulness(Faithfulness):
+            async def _create_verdicts(self, row, statements, callbacks):
+                result = await super()._create_verdicts(row, statements, callbacks)
+                verdicts.extend(result.statements)
+                return result
+
+        metric = AuditedFaithfulness(llm=LangchainLLMWrapper(get_llm()))
+        score = _score(metric.single_turn_ascore(sample))
+        return {"score": score,
+                "unsupported_claims": [{"statement": v.statement, "reason": v.reason}
+                                       for v in verdicts if not v.verdict],
+                "reasoning": "RAGAS faithfulness to requester claims, recorded facts and configured policy; "
+                             + ("independent execution evidence" if workflow_record is not None else
+                                "supplied structured evidence only (reference-runner compatibility)")}
     return hallucination
 
 

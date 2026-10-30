@@ -25,7 +25,7 @@ function emptyDraft() {
     title: "", description: "", amount: "", department: "engineering" as Department,
     requester: "", justification: "", priority: "normal" as FinancialRequest["priority"],
     current_situation: "unknown" as BusinessCase["current_situation"],
-    evidence: "", business_impact: "", urgency_reason: "",
+    evidence: "", business_impact: "", urgency_reason: "", parallel_high_risk: false,
   };
 }
 
@@ -88,6 +88,7 @@ export default function RequestForm() {
       request_id: requestId, title: formData.title.trim(), description: formData.description.trim(),
       amount: Number(formData.amount), department: formData.department, requester: formData.requester.trim(),
       justification: formData.justification.trim(), priority: formData.priority,
+      bonus_options: {request_id:requestId,parallel_high_risk:formData.parallel_high_risk},
       business_case: {
         request_id: requestId, current_situation: formData.current_situation,
         evidence, business_impact: formData.business_impact.trim(),
@@ -195,6 +196,10 @@ export default function RequestForm() {
                     <textarea id="request-description" placeholder="Describe the purchase or action, its scope, and what the amount covers."
                       value={formData.description} onChange={(e) => updateField("description", e.target.value)} rows={3} maxLength={2000} required className={fieldClass} />
                   </div>
+                  <label className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
+                    <input type="checkbox" className="mt-1" checked={formData.parallel_high_risk} onChange={e=>updateField("parallel_high_risk",e.target.checked)}/>
+                    <span><b>Bonus: parallel high-risk reviews</b><br/>If assessed High, open Manager and Finance together. Both must approve; either can reject. Low, Medium and Critical keep their standard routes.</span>
+                  </label>
                 </>
               )}
 
@@ -253,6 +258,7 @@ export default function RequestForm() {
                       <div><dt className="text-gray-500">Department</dt><dd className="mt-1 capitalize">{formData.department}</dd></div>
                       <div><dt className="text-gray-500">Requester</dt><dd className="mt-1">{formData.requester}</dd></div>
                       <div><dt className="text-gray-500">Priority</dt><dd className="mt-1 capitalize">{formData.priority}</dd></div>
+                      <div><dt className="text-gray-500">Review mode</dt><dd className="mt-1">{formData.parallel_high_risk?"High risk: Manager + Finance in parallel":"Standard sequential workflow"}</dd></div>
                     </dl>
                   </div>
                   <dl className="space-y-4 text-sm">

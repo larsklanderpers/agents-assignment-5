@@ -56,12 +56,16 @@ def build_review_context(state, stage):
                            if assessed == "medium" else "High and critical requests require finance review after manager approval."),
         "final_signoff": "Critical requests require executive sign-off after manager and finance approval.",
     }
+    parallel = assessed == "high" and state.get("parallel_approvals")
+    if parallel:
+        reasons["manager_review"] = "Bonus parallel route: manager and finance reviews are open together. Both must approve."
+        reasons["finance_review"] = "Bonus parallel route: finance reviews independently of the manager. Both must approve."
     return {
         "risk_rules": risk_rules,
         "rule_risk_level": rule_level,
         "matches_assessment": assessed == rule_level,
         "trigger": trigger,
-        "review_path": routes.get(assessed, []),
+        "review_path": ["Manager + Finance (parallel)"] if parallel else routes.get(assessed, []),
         "stage_reason": reasons[stage],
         "ceiling_rule": f"Zero or negative amounts, and amounts above {ceiling}, are rejected before risk assessment or human review.",
         "budget_rule": ("High and critical requests skip automatic budget validation; finance must review funding."

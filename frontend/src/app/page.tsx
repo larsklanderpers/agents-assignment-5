@@ -6,8 +6,14 @@ import ApprovalPanel from "@/components/ApprovalPanel";
 import RequestForm from "@/components/RequestForm";
 import WorkflowStatus from "@/components/WorkflowStatus";
 import RequestHistory from "@/components/RequestHistory";
+import { useCoAgent } from "@copilotkit/react-core";
+import { useDashboard } from "@/lib/activity";
+import { PipelineStats } from "@/components/ActivityDashboard";
 
 export default function Home() {
+  const {state}=useCoAgent<{request_id?:string;audit_run_id?:string}>({name:"approval_agent"});
+  const {data,error}=useDashboard();
+  const active=data?.requests.find(r=>r.run_id===state.audit_run_id);
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -29,7 +35,7 @@ export default function Home() {
               instructions="You are a financial approval assistant. Help users submit financial requests and guide them through the multi-stage approval workflow. When a request is submitted, process it through risk assessment, manager review, budget validation, finance review, and final sign-off. Explain each stage clearly and help users understand the approval status."
               labels={{
                 title: "Approval Assistant",
-                initial: "Submit a financial request for approval. You can use the form on the right or describe your request here.",
+                initial: "Use the request form to start an approval workflow. The dashboard records its stages, decisions and simulated notifications.",
               }}
             />
           </div>
@@ -38,8 +44,10 @@ export default function Home() {
         {/* Right Column - Controls */}
         <div className="w-full lg:w-80 space-y-4">
           <RequestForm />
-          <WorkflowStatus />
-          <RequestHistory />
+          <PipelineStats data={data}/>
+          {error&&<p role="alert" className="text-xs text-red-700">{error}</p>}
+          <WorkflowStatus request={active}/>
+          <RequestHistory requests={data?.requests}/>
         </div>
       </main>
 
