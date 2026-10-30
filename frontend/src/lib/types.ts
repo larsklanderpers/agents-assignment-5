@@ -25,6 +25,7 @@ export interface FinancialRequest {
   justification: string;
   priority: "low" | "normal" | "high" | "urgent";
   business_case?: BusinessCase | null;
+  bonus_options?: {request_id:string;parallel_high_risk:boolean};
 }
 
 export interface ApprovalDecision {

@@ -9,6 +9,10 @@ Part 1: LangGraph Workflow + Interrupts (35 points)
 """
 
 from langgraph.graph import StateGraph, START, END
+from langgraph.errors import GraphInterrupt
+from functools import wraps
+from backend.agent.parallel import (route_risk_with_bonus, parallel_manager_review,
+    parallel_finance_review, join_parallel_reviews, route_parallel_result)
 from backend.agent.state import ApprovalState
 from backend.agent.nodes import (
     submit_request,
@@ -28,7 +32,7 @@ from backend.agent.nodes import (
 )
 
 
-def create_approval_graph(checkpointer=None):
+def create_approval_graph(checkpointer=None, event_store=None):
     """
     Build and return the compiled Financial Approval StateGraph.
 
@@ -74,13 +78,33 @@ def create_approval_graph(checkpointer=None):
         Compiled StateGraph ready for execution
     """
     graph = StateGraph(ApprovalState)
+    def tracked(node):
+        if event_store is None:
+            return node
+        stage = node.__name__.removeprefix("parallel_")
+        @wraps(node)
+        def invoke(state):
+            if node.__name__ != "submit_request":
+                event_store.record(state, stage, started=True)
+            try:
+                output = node(state)
+            except GraphInterrupt:
+                event_store.record(state, stage, pending=True)
+                raise
+            except Exception as exc:
+                event_store.record(state, stage, error=exc)
+                raise
+            event_store.record(state, stage, output)
+            return output
+        return invoke
     for node in (submit_request, assess_risk, manager_review, validate_budget,
-                 finance_review, final_signoff, process_request, handle_rejection):
-        graph.add_node(node.__name__, node)
+                 finance_review, final_signoff, process_request, handle_rejection,
+                 parallel_manager_review, parallel_finance_review, join_parallel_reviews):
+        graph.add_node(node.__name__, tracked(node))
     graph.add_edge(START, "submit_request")
     routes = [
         ("submit_request", route_after_submission, ["assess_risk", "handle_rejection"]),
-        ("assess_risk", route_after_risk, ["validate_budget", "manager_review"]),
+        ("assess_risk", route_risk_with_bonus, ["validate_budget", "manager_review", "parallel_manager_review", "parallel_finance_review"]),
         ("manager_review", route_after_manager, ["process_request", "validate_budget", "finance_review", "handle_rejection"]),
         ("validate_budget", route_after_budget, ["process_request", "manager_review", "finance_review"]),
         ("finance_review", route_after_finance, ["process_request", "final_signoff", "handle_rejection"]),
@@ -90,4 +114,7 @@ def create_approval_graph(checkpointer=None):
         graph.add_conditional_edges(source, router, {name: name for name in destinations})
     graph.add_edge("process_request", END)
     graph.add_edge("handle_rejection", END)
+    graph.add_edge(["parallel_manager_review", "parallel_finance_review"], "join_parallel_reviews")
+    graph.add_conditional_edges("join_parallel_reviews", route_parallel_result,
+                               {"process_request": "process_request", "handle_rejection": "handle_rejection"})
     return graph.compile(checkpointer=checkpointer)

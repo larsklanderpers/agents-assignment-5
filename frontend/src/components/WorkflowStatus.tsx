@@ -1,63 +1,6 @@
 "use client";
-
-import { WORKFLOW_STEPS, WorkflowStep } from "@/lib/types";
-
-interface WorkflowStatusProps {
-  currentStage?: string;
-  status?: string;
-}
-
-const STATUS_BADGE_COLORS: Record<WorkflowStep["status"], string> = {
-  pending: "bg-gray-200 text-gray-500",
-  active: "bg-blue-500 text-white animate-pulse",
-  completed: "bg-green-500 text-white",
-  rejected: "bg-red-500 text-white",
-};
-
-const STATUS_LABEL_CLASSES: Record<WorkflowStep["status"], string> = {
-  active: "font-semibold text-blue-700",
-  completed: "text-green-700",
-  rejected: "text-red-700 line-through",
-  pending: "text-gray-500",
-};
-
-function resolveStepStatus(
-  step: WorkflowStep,
-  currentStage: string | undefined,
-  status: string | undefined
-): WorkflowStep["status"] {
-  if (!currentStage) return "pending";
-
-  const currentIndex = WORKFLOW_STEPS.findIndex((s) => s.name === currentStage);
-  const stepIndex = WORKFLOW_STEPS.findIndex((s) => s.name === step.name);
-
-  if (status === "rejected" && stepIndex === currentIndex) return "rejected";
-  if (stepIndex < currentIndex) return "completed";
-  if (stepIndex === currentIndex) return "active";
-  return "pending";
-}
-
-export default function WorkflowStatus({ currentStage, status }: WorkflowStatusProps) {
-  return (
-    <div className="bg-white rounded-lg shadow-md p-4">
-      <h3 className="text-sm font-semibold text-gray-700 mb-3">Workflow Progress</h3>
-      <div className="space-y-2">
-        {WORKFLOW_STEPS.map((step, index) => {
-          const stepStatus = resolveStepStatus(step, currentStage, status);
-          return (
-            <div key={step.name} className="flex items-center gap-2">
-              <div
-                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${STATUS_BADGE_COLORS[stepStatus]}`}
-              >
-                {stepStatus === "completed" ? "\u2713" : index + 1}
-              </div>
-              <span className={`text-sm ${STATUS_LABEL_CLASSES[stepStatus]}`}>
-                {step.label}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+import {WORKFLOW_STEPS} from "@/lib/types";
+import {ActivityRequest} from "@/lib/activity";
+export default function WorkflowStatus({request}:{request?:ActivityRequest}){
+ return <section className="rounded-lg border bg-white p-4"><h3 className="text-sm font-semibold text-gray-800">Workflow Progress</h3>{!request?<p className="mt-2 text-sm text-gray-500">No recorded activity for the current request.</p>:<><p className="mt-1 text-xs text-gray-500">{request.request_id} · {request.status}</p><ol className="mt-3 space-y-2">{WORKFLOW_STEPS.map(step=>{const rejected=request.decisions.some(d=>d.stage===step.name&&!d.approved);const waiting=request.pending_stages.includes(step.name);const complete=request.completed_stages.includes(step.name);const terminal=['approved','rejected'].includes(request.status);const label=rejected?'Rejected':waiting?'Awaiting review':complete?'Complete':terminal?'Skipped':request.current_stage===step.name?'In progress':'Not reached';return <li key={step.name} className={`flex justify-between gap-2 text-xs ${rejected?'text-red-700':waiting?'font-semibold text-blue-700':complete?'text-green-700':'text-gray-500'}`}><span>{step.label}</span><span>{label}</span></li>;})}</ol></>}</section>;
 }

@@ -211,7 +211,7 @@ Open **http://localhost:3000** in your browser to interact with the Financial Ap
 4. Click **Approve** or **Reject** with comments to resume the workflow
 5. The graph continues to the next stage or terminates with rejection
 
-> **Note:** The **Workflow Progress** and **Request History** panels in the sidebar are static placeholders in this starter: they are not connected to the graph state, so they do not change while a request runs. Follow progress in the chat messages and the Approval Panel. Wiring them up is optional and not graded.
+> **Bonus implementation:** Workflow Progress and Request History now read persistent backend activity. The live dashboard at `/dashboard` refreshes every two seconds and includes the pipeline, per-request audit trail and simulated email/Slack outbox. Runs from before this feature was enabled are not backfilled.
 
 ## Project Structure
 
@@ -342,7 +342,7 @@ The frontend is fully implemented for you. Study the code to understand how Copi
 | `frontend/src/components/RequestHistory.tsx` | List of past approval requests |
 | `frontend/src/app/api/copilotkit/route.ts` | API route proxy using `LangGraphHttpAgent` |
 
-`page.tsx` renders `WorkflowStatus` and `RequestHistory` without props, so both stay in their empty state. Wiring them to the agent state is optional.
+`page.tsx` connects `WorkflowStatus` and `RequestHistory` to the current agent's recorded run and the persistent activity service. Skipped stages are distinguished from completed stages.
 
 ### How HITL Approvals Work (Frontend ↔ Backend)
 
@@ -465,6 +465,26 @@ The three LLM-judged evaluators make about 9 LLM calls per test case with the RA
 3. **Audit Trail** (+5 points): Persistent audit log with timestamps, reviewers, and decisions
 4. **Notification System** (+4 points): Email/Slack notification simulation when requests need review
 
+### Implemented bonus features
+
+- **Parallel high-risk approvals:** select **Bonus: parallel high-risk reviews** in the request form. High-risk requests fan out into independent manager and finance graph tasks; both interruptions exist at once. Either reviewer can respond first, and either rejection blocks approval. A join waits for both decisions. The standard route remains the default; low, medium and critical routes are unchanged.
+- **Dashboard:** `/dashboard` displays persistent totals, pending review stages, approved/rejected runs, request history and audit details. It polls every two seconds, reports refresh failures and retains previously loaded figures with a stale-data warning.
+- **Audit trail:** `approval_audit.db` stores each run separately, with stage events, review requests, reviewer roles, timestamps, comments and decisions. **Download audit log** exports JSON. This is an educational local audit log, not a tamper-proof or authenticated production ledger.
+- **Notifications:** each review pause writes one email and one Slack preview in the same database transaction as its audit event. Replayed pauses are deduplicated. Delivery is always `simulated`; no email, Slack service or external recipient is contacted.
+
+The UI presents both parallel review tabs and collects both selections before sending an addressed response batch. The backend also supports independently submitted responses, including finance-first and restart/resume; integration tests cover both forms. Reviewer identities are role labels in this local demo, not authenticated separate users.
+
+`ApprovalAGUIAgent` preserves the pinned adapter's interrupt flags when cloned and maps standard AG-UI response IDs to native LangGraph interrupt IDs. `ApprovalPanel` uses the style-free `useInterrupt` hook (the multi-interrupt successor to the given `useLangGraphInterrupt` hook) outside the chat container.
+
+The server records activity when it runs the graph. Offline evaluation runners omit the activity store by default so test runs do not pollute the dashboard. Set `APPROVAL_AUDIT_DB` to choose another local audit database. Checkpoint persistence remains in `CHECKPOINT_DB`; both databases are ignored by Git.
+
+Local bonus verification on 30 October: **145 tests passed**, including 17 new
+bonus tests; the production build passed; all 12 standard live cases retained
+their expected paths and all nine deterministic metric averages were 1.00.
+Browser walkthroughs completed a parallel approval (Finance selected first), a
+parallel rejection and a standard medium-risk approval. A backend restart
+preserved all three runs, their decisions and ten simulated notification records.
+
 ## Running Tests
 
 ```bash
@@ -502,8 +522,8 @@ python -m backend.evaluation.run_three_layer_eval
 
 The seven required implementation files are complete. The supplied frontend now
 includes policy explanations, stage-specific review guidance, budget-reference
-comparisons and structured business-case prompts. Its progress and history panels
-remain starter placeholders.
+comparisons and structured business-case prompts. Progress and history now use
+the bonus activity service described above.
 
 Review policy explanations come from backend configuration. Budget reference
 figures are shown even before validation or when that node is skipped; these
@@ -532,6 +552,52 @@ level. Human decisions are simulated as approvals **in this evaluation runner
 only**. The web app still pauses for real human decisions. `--three-layer` also
 enables the three LLM-judged RAGAS metrics and incurs additional model calls.
 
+The live runner includes the model's risk explanation, validation message and
+budget results in the evaluated answer. Faithfulness uses a separate snapshot
+of recorded facts (including reviewer names and timestamps), requester-reported
+claims and authoritative configured policy. Free-text explanations and review
+comments are not treated as evidence for their own truth. Actual reviewer resume
+inputs are captured separately to verify attribution of comments, without
+certifying their contents as policy or independently verified facts. Its result also lists
+unsupported statements and the judge's reasons for deductions. The original
+three-argument API remains supported for reference-only runners; those runners
+do not independently establish that an execution happened.
+
+Check whether the judge distinguishes correct claims from fabricated ones:
+
+```bash
+python -m backend.evaluation.run_faithfulness_controls
+```
+
+Use `python -m backend.evaluation.run_graph_eval --faithfulness-only` for a
+focused live rerun of deterministic metrics and faithfulness. Validator messages
+are recorded execution facts; model-generated risk explanations stay outside the
+grounding record. The live JSONL output includes the separate evidence snapshot.
+The faithfulness answer renders model reasoning as plain text and labels review
+counts as reviews performed and budget balances as configured references. It
+preserves all supplied fields, including unknown fields; the wording avoids
+mistaking an observed count for a policy requirement or a reference for live cash.
+
+This runs three focused positive/negative pairs: configured policy, department
+budget and approval history. Execution evidence stays fixed while the candidate
+claim changes. Correct controls must score at least 0.95, fabricated controls at
+most 0.5, and the correct score must exceed the fabricated score. Failure returns
+a nonzero exit code. These are diagnostic thresholds for these explicit examples,
+not grading thresholds or proof that every possible hallucination is detected.
+A fourth pair preserves genuine metadata around a fabricated reviewer/stage.
+For that mixed record, require a lower score and explicit identification of the
+fabricated reviewer/stage: correct surrounding details can dilute the average,
+so an aggregate score alone must not be treated as proof of a safe answer.
+Expanded live answers cover more material than the original runner, so their
+judge averages are not directly comparable to earlier scores.
+
+The subsequent local follow-up on 30 October passed 128 automated tests and all
+12 expected live workflow outcomes. All four fabricated-claim controls passed.
+The final focused run scored 0.949 faithfulness and 1.00 on its nine deterministic
+metrics. A separate broader run scored 1.00 goal accuracy and 0.819 topic adherence;
+those scores are not combined into a single overall grade. Remaining faithfulness
+deductions and their reasons are retained in the local evaluation report.
+
 `tests/test_workflow_execution.py` executes the real graph with an explicit model
 double, so it needs no credentials. It covers all 12 supplied cases, rejection at
 each review stage, repeated-request state resets, SQLite persistence across
@@ -539,7 +605,7 @@ reopening, the asynchronous web-server graph API, invalid resume payloads, and
 dataset generation/upload contracts. These offline checks do not establish live
 model accuracy or successful LangSmith tracing.
 
-### Verified Results (29 October 2026)
+### Verified Results (29–30 October 2026)
 
 The configured OpenAI model is `gpt-6-luna`, with reasoning effort `none` for
 compatibility with the existing Chat Completions integration. API keys belong in
@@ -547,7 +613,7 @@ the ignored local `.env` file.
 
 | Check | Result |
 |-------|--------|
-| Automated tests, including real graph execution with a model double | 124 passed (30 October follow-up) |
+| Automated tests, including real graph execution and bonus integration checks | 145 passed (30 October follow-up) |
 | Supplied frontend production build | Passed |
 | Supplied basic evaluator runner (reference outputs) | Both averages 1.00 |
 | Supplied three-layer runner (reference outputs, live Luna judges) | Overall 0.97 |
@@ -584,6 +650,10 @@ if the terminal cannot print the report's table characters.
 - [RAGAS LangGraph Integration](https://docs.ragas.io/en/latest/howtos/integrations/_langgraph_agent_evaluation/)
 
 ## Submission
+
+The completed, user-edited reflection is saved in
+[docs/reflection_submitted.md](docs/reflection_submitted.md). The original
+reflection template is retained for reference.
 
 1. **Fork** this repository to your own GitHub account and do your work there. If your repository is private, add **Vyoma** as a collaborator so it can be graded
 2. Run the tests and both evaluation runners (see **Running Tests** and **Useful Commands** above)

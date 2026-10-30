@@ -26,6 +26,11 @@ class ApprovalState(MessagesState):
     justification: str
     priority: str
     business_case: Optional[dict]
+    bonus_options: Optional[dict]
+    parallel_approvals: bool
+    parallel_manager_decision: Optional[dict]
+    parallel_finance_decision: Optional[dict]
+    audit_run_id: str
 
     # --- Risk Assessment ---
     risk_level: Optional[str]  # None when rejected before assessment

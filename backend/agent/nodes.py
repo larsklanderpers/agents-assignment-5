@@ -1,6 +1,7 @@
 """Financial approval nodes and risk-based escalation routers."""
 import json
 import re
+from uuid import uuid4
 from datetime import datetime, timezone
 from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.types import interrupt
@@ -26,7 +27,14 @@ def submit_request(state: ApprovalState) -> dict:
         case_valid, case_message = validate_business_case(business_case)
         if not case_valid:
             valid, message = False, case_message
+    options = state.get("bonus_options")
+    if not isinstance(options, dict) or options.get("request_id") != state.get("request_id"):
+        options = None
+    parallel = bool(options and options.get("parallel_high_risk") is True)
     return {"is_valid": valid, "validation_message": message,
+        "bonus_options": options, "parallel_approvals": parallel,
+        "parallel_manager_decision": None, "parallel_finance_decision": None,
+        "audit_run_id": str(uuid4()),
         "business_case": business_case,
         "status": "pending" if valid else "rejected",
         "current_stage": "risk_assessment" if valid else "rejection",

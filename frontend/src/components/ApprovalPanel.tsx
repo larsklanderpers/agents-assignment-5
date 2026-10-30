@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useLangGraphInterrupt } from "@copilotkit/react-core";
+import { useState, ReactNode } from "react";
+// useInterrupt replaces useLangGraphInterrupt so every parallel interrupt is
+// explicitly addressed; the supplied single-review modal remains in use.
+import { useInterrupt } from "@copilotkit/react-core/v2/headless";
 import { InterruptData, ApprovalDecision } from "@/lib/types";
 
 const STAGE_LABELS: Record<string, string> = {
@@ -28,17 +30,23 @@ const SITUATION_LABELS: Record<string, string> = {
 function ApprovalModal({
   data,
   resolve,
+  comments,
+  setComments,
+  navigation,
+  busy,
 }: {
   data: InterruptData;
   resolve: (resolution: string) => void;
+  comments: string;
+  setComments: (text:string)=>void;
+  navigation?: ReactNode;
+  busy: boolean;
 }) {
-  const [comments, setComments] = useState("");
   const stageLabel = STAGE_LABELS[data.type] || data.type;
   const riskColor = RISK_COLORS[data.risk_level] || "text-gray-600 bg-gray-100";
 
   const handleDecision = (approved: boolean) => {
     resolve(JSON.stringify({ approved, comments }));
-    setComments("");
   };
 
   return (
@@ -46,6 +54,7 @@ function ApprovalModal({
       <div role="dialog" aria-modal="true" aria-labelledby="approval-review-title" className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="bg-blue-600 text-white px-6 py-4 shrink-0">
+          {navigation}
           <h2 id="approval-review-title" className="text-xl font-bold">{stageLabel}</h2>
           <p className="text-blue-100 text-sm mt-1">
             Review the rules, supporting facts and your decision responsibilities
@@ -260,12 +269,14 @@ function ApprovalModal({
           <div className="flex gap-3 px-6 py-4 border-t bg-white shrink-0">
             <button
               onClick={() => handleDecision(true)}
+              disabled={busy}
               className="flex-1 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors"
             >
               Approve
             </button>
             <button
               onClick={() => handleDecision(false)}
+              disabled={busy}
               className="flex-1 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors"
             >
               Reject
@@ -276,13 +287,26 @@ function ApprovalModal({
   );
 }
 
-export default function ApprovalPanel() {
-  useLangGraphInterrupt({
-    render: ({ event, resolve }) => {
-      const data = event.value as InterruptData;
-      return <ApprovalModal data={data} resolve={resolve} />;
-    },
-  });
-
-  return null;
+type ReviewItem={id:string;data:InterruptData};
+function ReviewGroup({items,resolve}:{items:ReviewItem[];resolve:(payload:unknown,id?:string)=>Promise<unknown>}){
+  const [selected,setSelected]=useState(items[0].id);
+  const [comments,setComments]=useState<Record<string,string>>({});
+  const [answers,setAnswers]=useState<Record<string,string>>({});
+  const [busy,setBusy]=useState(false);const [error,setError]=useState("");
+  const item=items.find(i=>i.id===selected)||items[0];
+  async function decide(value:string){
+    if(busy||answers[item.id])return;setBusy(true);setError("");
+    const decision=JSON.parse(value);const updated={...answers,[item.id]:decision.approved?'Approve selected':'Reject selected'};setAnswers(updated);
+    const next=items.find(i=>!updated[i.id]);if(next)setSelected(next.id);
+    try{await resolve(decision,item.id==='legacy'?undefined:item.id);}catch{setError('The decision could not be confirmed. Check the workflow before retrying.');}finally{setBusy(false);}
+  }
+  const navigation=items.length>1?<div className="mb-3 rounded bg-blue-800 p-3"><p className="text-sm font-semibold">Parallel reviews · both decisions required</p><p className="mt-1 text-xs text-blue-100">Both reviews are open. Decisions are sent together after both selections are recorded.</p><div className="mt-2 flex gap-2">{items.map(i=><button key={i.id} disabled={Boolean(answers[i.id])||busy} onClick={()=>setSelected(i.id)} className={`rounded border px-2 py-1 text-xs ${selected===i.id?'bg-white text-blue-900':'text-white'} disabled:opacity-60`}>{STAGE_LABELS[i.data.type]}{answers[i.id]?` · ${answers[i.id]}`:''}</button>)}</div></div>:null;
+  return <ApprovalModal data={item.data} resolve={decide} comments={comments[item.id]||''} setComments={text=>setComments({...comments,[item.id]:text})} busy={busy||Boolean(answers[item.id])} navigation={<>{navigation}{error&&<p role="alert">{error}</p>}</>}/>;
+}
+export default function ApprovalPanel(){
+  const panel=useInterrupt({agentId:'approval_agent',renderInChat:false,render:({interrupts,event,resolve})=>{
+    const items:ReviewItem[]=interrupts.length?interrupts.map(i=>({id:i.id,data:((i.metadata as {langgraph?:{raw?:InterruptData}})?.langgraph?.raw||{}) as InterruptData})):[{id:'legacy',data:event.value as InterruptData}];
+    return <ReviewGroup key={items.map(i=>i.id).join(':')} items={items} resolve={resolve}/>;
+  }});
+  return <>{panel}</>;
 }

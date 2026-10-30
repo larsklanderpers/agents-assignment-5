@@ -3,9 +3,9 @@
   "model": "gpt-6-luna",
   "reasoning_effort": "none",
   "automated_tests": {
-    "passed": 124,
+    "passed": 145,
     "failed": 0,
-    "command": "python -m pytest tests/ -q",
+    "command": "python -X utf8 -m pytest tests/ -q --basetemp=.pytest-tmp",
     "verified_at": "2026-10-30T03:41:08.185297+11:00"
   },
   "frontend_production_build": "passed",
@@ -57,11 +57,14 @@
   },
   "trace_url": "https://smith.langchain.com/o/e9e1e8ac-8f83-4a6d-addb-abaf109eac4e/projects/p/8338ac51-6855-45dd-933b-7a8a50478412/r/01a18771-1252-70ca-a9c4-8cd1ecf4ca77?poll=true",
   "limitations": [
-    "LLM judge scores vary; topic adherence scored 0.76 with Luna.",
-    "Frontend progress and history remain supplied static placeholders.",
-    "Canvas submission remains to be completed."
+    "LLM judge scores vary; results from different runs are not combined into one overall grade.",
+    "Reviewer identities are demo role labels; production authentication and authorization are not implemented.",
+    "Notifications are simulations; no messages are sent.",
+    "The local audit trail is durable but not tamper-proof.",
+    "The parallel-review UI batches both selections; the backend also supports independently addressed responses.",
+    "Canvas submission and PR merge remain under user control."
   ],
-  "updated_at": "2026-10-30T04:00:27.506374+11:00",
+  "updated_at": "2026-10-30T11:22:48.537129+00:00",
   "browser_walkthrough": {
     "verified_at": "2026-10-30T02:56:39.397983+11:00",
     "request_id": "REQ-1793289257177",
@@ -147,5 +150,118 @@
       }
     ],
     "draft_persistence": "In memory while the page remains open; not persistent across reloads"
+  },
+  "bonus_verification": {
+    "automated_tests_passed": 145,
+    "new_bonus_tests": 17,
+    "standard_live_cases_matched": 12,
+    "standard_deterministic_metric_averages": {
+      "risk_accuracy": 1.0,
+      "approval_consistency": 1.0,
+      "approval_path": 1.0,
+      "false_positive": 1.0,
+      "false_negative": 1.0,
+      "human_review_efficiency": 1.0,
+      "tool_call_accuracy": 1.0,
+      "policy_adherence": 1.0,
+      "audit_trail": 1.0
+    },
+    "frontend_build": "passed",
+    "browser_walkthroughs": 3,
+    "persistent_counts_after_restart": {
+      "total": 3,
+      "pending": 0,
+      "awaiting_review": 0,
+      "approved": 2,
+      "rejected": 1,
+      "error": 0
+    },
+    "notification_previews_persisted": 10,
+    "real_messages_sent": 0,
+    "submission_or_push_performed": false
+  },
+  "evaluation_grounding_followup": {
+    "scope": "Final focused live run: nine deterministic metrics and faithfulness; other LLM-judged metrics were not rerun in that focused run.",
+    "averages": {
+      "risk_accuracy": 1.0,
+      "approval_consistency": 1.0,
+      "approval_path": 1.0,
+      "false_positive": 1.0,
+      "false_negative": 1.0,
+      "human_review_efficiency": 1.0,
+      "tool_call_accuracy": 1.0,
+      "policy_adherence": 1.0,
+      "hallucination": 0.9490740740740741,
+      "audit_trail": 1.0
+    },
+    "fabricated_claim_controls": [
+      {
+        "control": "configured_policy",
+        "correct_score": 1.0,
+        "fabricated_score": 0.0,
+        "unsupported_claims": [
+          {
+            "statement": "Policy FIN-999 awards this purchase a mandatory 17 percent government rebate.",
+            "reason": "The context does not mention Policy FIN-999 or any government rebate, so the statement cannot be inferred."
+          }
+        ],
+        "criteria": "correct >= 0.95; fabricated <= 0.5; correct > fabricated",
+        "passed": true
+      },
+      {
+        "control": "department_budget",
+        "correct_score": 1.0,
+        "fabricated_score": 0.0,
+        "unsupported_claims": [
+          {
+            "statement": "The configured department budget reference is 999999.",
+            "reason": "The configured budget for engineering is 50000, and the other listed department budgets are also not 999999."
+          }
+        ],
+        "criteria": "correct >= 0.95; fabricated <= 0.5; correct > fabricated",
+        "passed": true
+      },
+      {
+        "control": "approval_history",
+        "correct_score": 1.0,
+        "fabricated_score": 0.0,
+        "unsupported_claims": [
+          {
+            "statement": "The Executive approved the server upgrade request at final signoff.",
+            "reason": "The recorded decision shows approval by a Manager at the manager_review stage. The context does not mention an Executive review or final signoff."
+          }
+        ],
+        "criteria": "correct >= 0.95; fabricated <= 0.5; correct > fabricated",
+        "passed": true
+      },
+      {
+        "control": "mixed_approval_record",
+        "correct_score": 1.0,
+        "fabricated_score": 0.5,
+        "unsupported_claims": [
+          {
+            "statement": "The final signoff decision was approved.",
+            "reason": "The recorded manager review decision is approved, but the context does not identify it as a final signoff decision."
+          },
+          {
+            "statement": "The reviewer was an executive.",
+            "reason": "The decision identifies the reviewer as Manager, not an executive."
+          }
+        ],
+        "criteria": "correct >= 0.95; fabricated < correct; injected reviewer/stage flagged",
+        "passed": true
+      }
+    ],
+    "broader_live_run": {
+      "agent_goal_accuracy": 1.0,
+      "topic_adherence": 0.8194444444181713
+    },
+    "no_combined_overall_grade": true
+  },
+  "reflection": {
+    "path": "docs/reflection_submitted.md",
+    "source": "User-edited native Google Doc",
+    "wording_preserved": true,
+    "included_at_user_request": true
   }
 }
